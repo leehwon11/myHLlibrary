@@ -56,7 +56,7 @@ async function saveData(){
     try{localStorage.setItem('library_backup',JSON.stringify(payload));}catch(e){}
     const client=getSupabase();
     if(!client) return;
-    const {error}=await client.from(SUPABASE_TABLE).upsert({id:SUPABASE_ROW_ID,data:payload},{onConflict:'id'});
+    const {error}=await client.from(SUPABASE_TABLE).upsert({id:SUPABASE_ROW_ID,value:payload},{onConflict:'id'});
     if(error) console.error('Save error:',error);
   },400);
 }
@@ -72,6 +72,18 @@ function normalizeBook(b){
   if(Array.isArray(b.rereads)&&b.reread===undefined){b.reread=b.rereads.length;delete b.rereads;}
   if(b.status==='읽고싶은') b.status='읽고싶어요';
   if(!b.createdAt) b.createdAt=Date.now();
+  if(b.sojai) b.sojai=b.sojai.map(t=>t.replace(/^#/,''));
+  if(b.rel) b.rel=b.rel.map(t=>t.replace(/^#/,''));
+  if(b.ml&&typeof b.mlType==='undefined'){
+    const first=Array.isArray(b.ml)?b.ml[0]:b.ml;
+    if(first&&first.typeTags&&first.typeTags.length) b.mlType=first.typeTags[0].replace(/^#/,'');
+  }
+  if(b.fl&&typeof b.fl==='object'&&typeof b.flType==='undefined'){
+    if(b.fl.typeTags&&b.fl.typeTags.length) b.flType=b.fl.typeTags[0].replace(/^#/,'');
+  }
+  if(b.platformurl&&!b.url){b.url=b.platformurl;}
+  if(b.excerpts&&!b.excerpt){b.excerpt=Array.isArray(b.excerpts)?b.excerpts.join('\n'):b.excerpts;}
+  if(b.review&&!b.memo){b.memo=b.review;}
   return b;
 }
 
@@ -79,10 +91,10 @@ async function loadFromDB(){
   const client=getSupabase();
   if(client){
     try{
-      const {data,error}=await client.from(SUPABASE_TABLE).select('data').eq('id',SUPABASE_ROW_ID).single();
-      if(!error&&data&&data.data){
-        books=(data.data.books||[]).map(normalizeBook);
-        if(data.data.settings) appSettings={...appSettings,...data.data.settings};
+      const {data,error}=await client.from(SUPABASE_TABLE).select('value').eq('id',SUPABASE_ROW_ID).single();
+      if(!error&&data&&data.value){
+        books=(data.value.books||[]).map(normalizeBook);
+        if(data.value.settings) appSettings={...appSettings,...data.value.settings};
         updateBookCount();
         return;
       }
