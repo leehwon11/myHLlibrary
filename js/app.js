@@ -219,6 +219,8 @@ function importJSON(file){
 document.addEventListener('DOMContentLoaded',async()=>{
   loadTheme();
   await loadFromDB();
+  const nbTitle=document.querySelector('.nb-title');
+  if(nbTitle&&appSettings.libraryName) nbTitle.textContent=appSettings.libraryName;
   if(typeof renderBooks==='function') renderBooks();
   if(typeof renderCalendar==='function') renderCalendar();
 

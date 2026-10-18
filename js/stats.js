@@ -8,12 +8,11 @@ function renderStats(){
   const wish=books.filter(b=>b.status==='읽고싶어요');
   const avgR=done.length?((done.reduce((s,b)=>s+(b.rating||0),0)/done.length).toFixed(1)):'0.0';
   const year=new Date().getFullYear();
-  const doneThisYear=done.filter(b=>b.dateend&&b.dateend.startsWith(String(year)));
+  const doneThisYear=done.filter(b=>b.dateEnd&&b.dateEnd.startsWith(String(year)));
   const goal=appSettings.yearlyGoal||30;
 
   let html='';
 
-  // 1. Basic Stats
   html+=`<div class="section-title">기본 통계</div>
   <div class="stat-row">
     <div class="stat-box"><div class="stat-num">${books.length}</div><div class="stat-label">전체</div></div>
@@ -23,7 +22,6 @@ function renderStats(){
     <div class="stat-box"><div class="stat-num">${avgR}</div><div class="stat-label">평균 별점</div></div>
   </div>`;
 
-  // 2. Yearly Goal
   const goalPct=Math.min(100,Math.round(doneThisYear.length/goal*100));
   let circles='';
   for(let i=1;i<=goal;i++){
@@ -38,13 +36,11 @@ function renderStats(){
     ${circles}
   </div>`;
 
-  // 3. Monthly Reading
   const monthCounts=Array(12).fill(0);
   doneThisYear.forEach(b=>{
-    const m=parseInt(b.dateend.slice(5,7))-1;
+    const m=parseInt(b.dateEnd.slice(5,7))-1;
     if(m>=0&&m<12) monthCounts[m]++;
   });
-  const maxMonth=Math.max(...monthCounts,1);
   let monthHtml='';
   for(let i=0;i<12;i++){
     let dots='';
@@ -53,9 +49,8 @@ function renderStats(){
   }
   html+=`<div class="section-title">월별 독서량</div><div class="monthly-row">${monthHtml}</div>`;
 
-  // 4. Genre Distribution
   const genreMap={};
-  done.forEach(b=>(b.genre||[]).forEach(g=>{genreMap[g]=(genreMap[g]||0)+1;}));
+  done.forEach(b=>(b.genres||[]).forEach(g=>{genreMap[g]=(genreMap[g]||0)+1;}));
   const genreEntries=Object.entries(genreMap).sort((a,b)=>b[1]-a[1]);
   if(genreEntries.length){
     let totalG=genreEntries.reduce((s,e)=>s+e[1],0);
@@ -76,7 +71,6 @@ function renderStats(){
     </div>`;
   }
 
-  // 5. Star Distribution
   const starCounts=[0,0,0,0,0];
   done.forEach(b=>{if(b.rating>=1&&b.rating<=5) starCounts[b.rating-1]++;});
   const maxStar=Math.max(...starCounts,1);
@@ -91,19 +85,10 @@ function renderStats(){
   }
   html+=`<div class="section-title">별점 분포</div><div class="star-bars">${starHtml}</div>`;
 
-  // 6. Subject Tags
-  html+=renderTagCloud('소재 태그',done,'sojaiTags');
-
-  // 7. Relationship Tags
-  html+=renderTagCloud('관계 태그',done,'relTags');
-
-  // 8. ML Type
+  html+=renderTagCloud('소재 태그',done,'sojai');
+  html+=renderTagCloud('관계 태그',done,'rel');
   html+=renderCharBars('남주 유형',done,'mlType','var(--pink)');
-
-  // 9. FL Type
   html+=renderCharBars('여주 유형',done,'flType','var(--lavender)');
-
-  // 10. Reading Heatmap
   html+=renderHeatmap(done);
 
   c.innerHTML=html;
@@ -148,9 +133,7 @@ function renderHeatmap(doneBooks){
 
   const dateMap={};
   doneBooks.forEach(b=>{
-    if(b.dateend){
-      dateMap[b.dateend]=(dateMap[b.dateend]||0)+1;
-    }
+    if(b.dateEnd) dateMap[b.dateEnd]=(dateMap[b.dateEnd]||0)+1;
   });
 
   let cells='';
