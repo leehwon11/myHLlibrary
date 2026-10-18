@@ -1,6 +1,10 @@
 // ══════════════ 나의 서재 — Library (Book CRUD, Render, Ridi) ══════════════
 
 let _editingId=null;
+let _mlData=[];
+let _flTypeTagsData=[];
+let _excerptsData=[];
+let _rereadsData=[];
 const STICKER_COLORS=['sticker-pink','sticker-mint','sticker-lavender','sticker-yellow'];
 
 function getStatusClass(s){
@@ -26,7 +30,7 @@ function renderBooks(){
 
   let list=books.filter(b=>{
     if(query){
-      const hay=[b.title,b.author,b.memo,b.excerpt,...(b.genres||[]),...(b.sojai||[]),...(b.rel||[])].join(' ').toLowerCase();
+      const hay=[b.title,b.author,b.memo,b.summary,b.review,...(b.genres||[]),...(b.sojai||[]),...(b.rel||[])].join(' ').toLowerCase();
       if(!hay.includes(query)) return false;
     }
     if(showAll) return true;
@@ -56,8 +60,6 @@ function renderBooks(){
     const dateStr=b.dateEnd||b.dateStart||'';
     const coverHtml=b.cover?`<img src="${escHtml(b.cover)}" alt="" loading="lazy">`:'📖';
     const allTags=[...(b.sojai||[]),...(b.rel||[])];
-    if(b.mlType) allTags.push(b.mlType);
-    if(b.flType) allTags.push(b.flType);
     const stickers=allTags.slice(0,5).map((t,i)=>`<span class="sticker ${STICKER_COLORS[i%4]}">${escHtml(t)}</span>`).join('');
     const titleHtml=query?highlightText(b.title,query):escHtml(b.title);
     const authorHtml=query?highlightText(b.author||'',query):escHtml(b.author||'');
@@ -75,6 +77,7 @@ function renderBooks(){
   }).join('');
 }
 
+// ══════════════ Detail View ══════════════
 function openDetail(id){
   const b=books.find(x=>x.id===id);
   if(!b) return;
@@ -90,20 +93,78 @@ function openDetail(id){
   const allTags=[...(b.sojai||[]),...(b.rel||[])];
   const tagHtml=allTags.map((t,i)=>`<span class="sticker ${STICKER_COLORS[i%4]}">${escHtml(t)}</span>`).join('');
 
+  let metaChips='';
+  if(b.booktype) metaChips+=`<span class="det-chip">${escHtml(b.booktype)}</span>`;
+  if(b.platform) metaChips+=`<span class="det-chip">${escHtml(b.platform)}</span>`;
+  if(b.agerating) metaChips+=`<span class="det-chip">${escHtml(b.agerating)}</span>`;
+  if(b.price) metaChips+=`<span class="det-chip">${Number(b.price).toLocaleString()}원</span>`;
+
   let datesHtml='';
-  if(b.dateStart||b.dateEnd){
-    datesHtml=`<div class="det-section"><div class="det-section-title">독서 기간</div><div style="font-size:13px;color:var(--ink-light)">${escHtml(b.dateStart||'?')} ~ ${escHtml(b.dateEnd||'?')}</div></div>`;
+  if(b.dateStart||b.dateEnd||b.datebuy){
+    let parts=[];
+    if(b.dateStart||b.dateEnd) parts.push(`독서 기간: ${escHtml(b.dateStart||'?')} ~ ${escHtml(b.dateEnd||'?')}`);
+    if(b.datebuy) parts.push(`구매일: ${escHtml(b.datebuy)}`);
+    datesHtml=`<div class="det-section"><div class="det-section-title">날짜</div><div style="font-size:13px;color:var(--ink-light);line-height:1.8">${parts.join('<br>')}</div></div>`;
   }
+
+  // 남주/여주 캐릭터 카드
   let charHtml='';
-  if(b.mlType||b.flType){
-    charHtml=`<div class="det-section"><div class="det-section-title">캐릭터 유형</div>`;
-    if(b.mlType) charHtml+=`<div style="margin-bottom:4px">남주: <strong>${escHtml(b.mlType)}</strong></div>`;
-    if(b.flType) charHtml+=`<div>여주: <strong>${escHtml(b.flType)}</strong></div>`;
-    charHtml+=`</div>`;
+  const mlArr=Array.isArray(b.ml)?b.ml:(b.ml&&b.ml.name?[b.ml]:[]);
+  const fl=b.fl&&typeof b.fl==='object'?b.fl:null;
+  if(mlArr.length||fl){
+    let cards='';
+    mlArr.forEach(m=>{
+      const typeTags=(m.typeTags||[]).map(t=>`<span class="det-char-tag">${escHtml(t)}</span>`).join('');
+      cards+=`<div class="det-char-card ml">
+        <div class="det-char-label">💙 ${m.sub?'서브남':'남주'}</div>
+        <div class="det-char-name">${escHtml(m.name||'이름 미입력')}</div>
+        ${m.age?`<div class="det-char-age">${escHtml(m.age)}</div>`:''}
+        ${typeTags?`<div class="det-char-tags">${typeTags}</div>`:''}
+        ${m.intro?`<p class="det-char-intro">${escHtml(m.intro)}</p>`:''}
+      </div>`;
+    });
+    if(fl&&fl.name){
+      const flTags=(fl.typeTags||b.flTypeTags||[]).map(t=>`<span class="det-char-tag">${escHtml(t)}</span>`).join('');
+      cards+=`<div class="det-char-card fl">
+        <div class="det-char-label">🩷 여주</div>
+        <div class="det-char-name">${escHtml(fl.name)}</div>
+        ${fl.age?`<div class="det-char-age">${escHtml(fl.age)}</div>`:''}
+        ${flTags?`<div class="det-char-tags">${flTags}</div>`:''}
+        ${fl.intro?`<p class="det-char-intro">${escHtml(fl.intro)}</p>`:''}
+      </div>`;
+    }
+    charHtml=`<div class="det-section"><div class="det-section-title">주인공 정보</div><div class="det-char-grid">${cards}</div></div>`;
   }
-  let memoHtml=b.memo?`<div class="det-section"><div class="det-section-title">메모</div><div class="det-text">${escHtml(b.memo)}</div></div>`:'';
-  let excerptHtml=b.excerpt?`<div class="det-section"><div class="det-section-title">인상 깊은 구절</div><div class="det-text" style="font-style:italic">"${escHtml(b.excerpt)}"</div></div>`:'';
-  let rereadHtml=b.reread?`<div class="det-section"><div class="det-section-title">재독</div><div style="font-size:13px;color:var(--ink-light)">${b.reread}회</div></div>`:'';
+
+  let summaryHtml=b.summary?`<div class="det-section"><div class="det-section-title">줄거리</div><div class="det-text" style="white-space:pre-wrap">${escHtml(b.summary)}</div></div>`:'';
+  let reviewHtml=b.review?`<div class="det-section"><div class="det-section-title">총평</div><div class="det-text" style="white-space:pre-wrap">${escHtml(b.review)}</div></div>`:'';
+  let memoHtml=b.memo?`<div class="det-section"><div class="det-section-title">메모</div><div class="det-text det-memo">${escHtml(b.memo)}</div></div>`:'';
+
+  let excerptHtml='';
+  const excerpts=b.excerpts||[];
+  if(excerpts.length){
+    const items=excerpts.map((e,i)=>{
+      const ex=typeof e==='string'?{text:e}:e;
+      return `<div class="det-excerpt">
+        <div class="det-excerpt-label">발췌 ${i+1}</div>
+        ${ex.location?`<div class="det-excerpt-loc">📍 ${escHtml(ex.location)}</div>`:''}
+        <div class="det-excerpt-text">"${escHtml(ex.text||'')}"</div>
+        ${ex.reason?`<div class="det-excerpt-reason">💭 ${escHtml(ex.reason)}</div>`:''}
+      </div>`;
+    }).join('');
+    excerptHtml=`<div class="det-section"><div class="det-section-title">발췌</div>${items}</div>`;
+  } else if(b.excerpt){
+    excerptHtml=`<div class="det-section"><div class="det-section-title">인상 깊은 구절</div><div class="det-text" style="font-style:italic">"${escHtml(b.excerpt)}"</div></div>`;
+  }
+
+  let rereadHtml='';
+  const rereads=b.rereads||[];
+  if(rereads.length){
+    const items=rereads.map(r=>`<div class="det-reread-item"><span class="det-reread-num">제${r.nth||1}회독</span><span style="color:var(--ink-light)">${escHtml(r.date||'')}</span>${r.note?`<span style="font-size:12px;color:var(--ink-muted)">${escHtml(r.note)}</span>`:''}</div>`).join('');
+    rereadHtml=`<div class="det-section"><div class="det-section-title">재독 기록</div>${items}</div>`;
+  }
+
+  const platformLink=b.platformurl||b.url;
 
   body.innerHTML=`
     <div class="det-header">
@@ -116,12 +177,13 @@ function openDetail(id){
           <span class="entry-genre" style="background:${statusColors[b.status]||'var(--ink-faint)'};color:${statusTextColors[b.status]||'var(--ink-muted)'};padding:3px 10px">${escHtml(b.status||'')}</span>
           ${(b.genres||[]).map(g=>{const c=getGenreColor(g);return `<span class="entry-genre" style="background:${hexToRgba(c,.15)};color:${c}">${escHtml(g)}</span>`;}).join('')}
         </div>
+        ${metaChips?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${metaChips}</div>`:''}
         ${b.fav?'<div style="font-size:14px;color:#e74c5e;margin-top:4px">♥ 즐겨찾기</div>':''}
-        ${b.url?`<a href="${escHtml(b.url)}" target="_blank" rel="noopener" style="font-size:12px;color:var(--blue);text-decoration:underline;display:inline-block;margin-top:4px">🔗 원본 링크</a>`:''}
+        ${platformLink?`<a href="${escHtml(platformLink)}" target="_blank" rel="noopener" style="font-size:12px;color:var(--blue);text-decoration:underline;display:inline-block;margin-top:4px">🔗 원본 링크</a>`:''}
       </div>
     </div>
     ${tagHtml?`<div class="sticker-row" style="margin-bottom:12px">${tagHtml}</div>`:''}
-    ${datesHtml}${charHtml}${memoHtml}${excerptHtml}${rereadHtml}
+    ${charHtml}${summaryHtml}${datesHtml}${reviewHtml}${memoHtml}${excerptHtml}${rereadHtml}
   `;
 
   document.getElementById('detailEdit').onclick=()=>{closeModal('ov-detail');openEditModal(b);};
@@ -147,13 +209,19 @@ function deleteBook(id){
   });
 }
 
+// ══════════════ Edit Form ══════════════
 function openEditModal(book){
   _editingId=book?book.id:null;
   const isNew=!book;
-  const b=book||{genres:[],sojai:[],rel:[],rating:0,status:'읽고싶어요'};
+  const b=book||{genres:[],sojai:[],rel:[],rating:0,status:'읽고싶어요',ml:[],fl:{},excerpts:[],rereads:[],flTypeTags:[]};
   document.getElementById('editModalTitle').textContent=isNew?'새 기록':'기록 수정';
   document.getElementById('editDelete').hidden=isNew;
   if(!isNew) document.getElementById('editDelete').onclick=()=>{closeModal('ov-edit');deleteBook(b.id);};
+
+  _mlData=Array.isArray(b.ml)?b.ml.map(m=>({...m,typeTags:m.typeTags||[]})):(b.ml&&b.ml.name?[{...b.ml,typeTags:b.ml.typeTags||[]}]:[]);
+  _flTypeTagsData=[...(b.flTypeTags||[]),...(b.fl&&b.fl.typeTags?b.fl.typeTags:[])].filter((v,i,a)=>a.indexOf(v)===i);
+  _excerptsData=Array.isArray(b.excerpts)?b.excerpts.map(e=>typeof e==='string'?{text:e,location:'',reason:''}:{...e}):[];
+  _rereadsData=Array.isArray(b.rereads)?b.rereads.map(r=>({...r})):[];
 
   const body=document.getElementById('editModalBody');
   body.innerHTML=buildEditForm(b);
@@ -166,6 +234,8 @@ function buildEditForm(b){
     const checked=(b.genres||[]).includes(g.name)?'checked':'';
     return `<label style="display:inline-flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;margin-right:8px;margin-bottom:4px"><input type="checkbox" class="edit-genre-cb" value="${escHtml(g.name)}" ${checked}><span class="sticker" style="background:${hexToRgba(g.color,.15)};color:${g.color};font-size:13px;padding:1px 6px;border-radius:6px">${escHtml(g.name)}</span></label>`;
   }).join('');
+
+  const fl=b.fl&&typeof b.fl==='object'?b.fl:{};
 
   return `
   <div class="form-grid">
@@ -201,11 +271,24 @@ function buildEditForm(b){
       <div class="fg"><label>장르</label><div style="line-height:1.8">${genreChecks}</div></div>
 
       <div class="row2">
+        <div class="fg"><label>작품 유형</label>
+          <select id="editBooktype"><option value="">선택 안함</option>${['단행본','장편소설','단편소설','시리즈','웹소설'].map(t=>`<option value="${escHtml(t)}"${b.booktype===t?' selected':''}>${escHtml(t)}</option>`).join('')}</select>
+        </div>
+        <div class="fg"><label>연령 등급</label>
+          <select id="editAgerating"><option value="">선택 안함</option>${['전체 이용가','15세 이용가','19세 이용가'].map(t=>`<option value="${escHtml(t)}"${b.agerating===t?' selected':''}>${escHtml(t)}</option>`).join('')}</select>
+        </div>
+      </div>
+
+      <div class="row2">
+        <div class="fg"><label>플랫폼</label><input type="text" id="editPlatform" value="${escHtml(b.platform||'')}" placeholder="리디, 시리즈 등"></div>
+        <div class="fg"><label>가격</label><input type="number" id="editPrice" value="${b.price||''}" placeholder="0" min="0"></div>
+      </div>
+
+      <div class="row2">
         <div class="fg"><label>시작일</label><input type="date" id="editDateStart" value="${escHtml(b.dateStart||'')}"></div>
         <div class="fg"><label>완독일</label><input type="date" id="editDateEnd" value="${escHtml(b.dateEnd||'')}"></div>
       </div>
-
-      <div class="fg"><label>재독 횟수</label><input type="number" id="editReread" min="0" value="${b.reread||0}" style="width:80px"></div>
+      <div class="fg"><label>구매일</label><input type="date" id="editDatebuy" value="${escHtml(b.datebuy||'')}" style="width:200px"></div>
 
       <div class="sec-label">소재 태그</div>
       <div class="tag-input-wrap" id="sojaiTagWrap"></div>
@@ -215,18 +298,34 @@ function buildEditForm(b){
       <div class="tag-input-wrap" id="relTagWrap"></div>
       <div class="quick-tags" id="relQuick"></div>
 
-      <div class="row2">
-        <div class="fg"><label>남주 유형</label>
-          <select id="editMlType"><option value="">선택 안함</option>${RIDI_ML_TYPES.map(t=>`<option value="${escHtml(t)}"${b.mlType===t?' selected':''}>${escHtml(t)}</option>`).join('')}</select>
+      <div class="sec-label">💙 남주 정보</div>
+      <div id="mlAccordion"></div>
+      <button type="button" class="btn btn-sm" onclick="addMlEntry()" style="margin-top:8px">💙 남주 추가</button>
+
+      <div class="sec-label">🩷 여주 정보</div>
+      <div class="char-form-block">
+        <div class="row2">
+          <div class="fg"><label>이름</label><input type="text" id="editFlName" value="${escHtml(fl.name||'')}" placeholder="여주 이름"></div>
+          <div class="fg"><label>나이</label><input type="text" id="editFlAge" value="${escHtml(fl.age||'')}" placeholder="나이"></div>
         </div>
-        <div class="fg"><label>여주 유형</label>
-          <select id="editFlType"><option value="">선택 안함</option>${RIDI_FL_TYPES.map(t=>`<option value="${escHtml(t)}"${b.flType===t?' selected':''}>${escHtml(t)}</option>`).join('')}</select>
-        </div>
+        <div class="fg"><label>소개</label><textarea id="editFlIntro" rows="2" placeholder="여주 소개...">${escHtml(fl.intro||'')}</textarea></div>
+        <div class="sec-label" style="font-size:12px">여주 유형 태그</div>
+        <div class="tag-input-wrap" id="flTypeTagWrap"></div>
+        <div class="quick-tags" id="flTypeQuick"></div>
       </div>
 
-      <div class="fg"><label>URL</label><input type="url" id="editUrl" value="${escHtml(b.url||'')}" placeholder="원본 링크 (선택)"></div>
-      <div class="fg"><label>메모</label><textarea id="editMemo" rows="3" placeholder="감상, 메모...">${escHtml(b.memo||'')}</textarea></div>
-      <div class="fg"><label>인상 깊은 구절</label><textarea id="editExcerpt" rows="2" placeholder="기억하고 싶은 문장...">${escHtml(b.excerpt||'')}</textarea></div>
+      <div class="fg"><label>플랫폼 URL</label><input type="url" id="editPlatformUrl" value="${escHtml(b.platformurl||b.url||'')}" placeholder="원본 링크 (선택)"></div>
+      <div class="fg"><label>줄거리</label><textarea id="editSummary" rows="3" placeholder="간략한 줄거리...">${escHtml(b.summary||'')}</textarea></div>
+      <div class="fg"><label>총평</label><textarea id="editReview" rows="3" placeholder="총평, 감상...">${escHtml(b.review||'')}</textarea></div>
+      <div class="fg"><label>메모</label><textarea id="editMemo" rows="2" placeholder="비공개 메모...">${escHtml(b.memo||'')}</textarea></div>
+
+      <div class="sec-label">발췌</div>
+      <div id="excerptsWrap"></div>
+      <button type="button" class="btn btn-sm" onclick="addExcerpt()" style="margin-top:8px">📝 발췌 추가</button>
+
+      <div class="sec-label">재독 기록</div>
+      <div id="rereadsWrap"></div>
+      <button type="button" class="btn btn-sm" onclick="addReread()" style="margin-top:8px">🔄 재독 추가</button>
     </div>
   </div>`;
 }
@@ -253,8 +352,14 @@ function initEditForm(b){
 
   initTagWrap('sojaiTagWrap','sojaiQuick',RIDI_SOJAI,b.sojai||[]);
   initTagWrap('relTagWrap','relQuick',RIDI_REL,b.rel||[]);
+  initTagWrap('flTypeTagWrap','flTypeQuick',RIDI_FL_TYPES.map(t=>'#'+t),_flTypeTagsData);
+
+  renderMlAccordion();
+  renderExcerpts();
+  renderRereads();
 }
 
+// ── Tag Input ──
 function initTagWrap(wrapId,quickId,options,initial){
   const wrap=document.getElementById(wrapId);
   const quick=document.getElementById(quickId);
@@ -294,6 +399,79 @@ function initTagWrap(wrapId,quickId,options,initial){
   }
 }
 
+// ── ML Accordion ──
+function renderMlAccordion(){
+  const wrap=document.getElementById('mlAccordion');
+  if(!wrap) return;
+  wrap.innerHTML=_mlData.map((m,i)=>{
+    const label=m.sub?'🩵 서브남':'💙 남주';
+    const typeTags=(m.typeTags||[]).map(t=>`<span class="tag-chip sticker-pink" style="font-size:11px">${escHtml(t)}</span>`).join('');
+    return `<div class="ml-entry" data-idx="${i}">
+      <div class="ml-entry-header" onclick="toggleMlEntry(${i})">
+        <span>${label} — ${escHtml(m.name||'(이름 없음)')}</span>
+        <button type="button" class="ml-del" onclick="event.stopPropagation();removeMl(${i})">✕</button>
+      </div>
+      <div class="ml-entry-body ${m._open?'open':''}">
+        <div class="row2">
+          <div class="fg"><label>이름</label><input type="text" value="${escHtml(m.name||'')}" onchange="syncMl(${i},'name',this.value)"></div>
+          <div class="fg"><label>나이</label><input type="text" value="${escHtml(m.age||'')}" onchange="syncMl(${i},'age',this.value)"></div>
+        </div>
+        <div class="fg"><label><input type="checkbox" ${m.sub?'checked':''} onchange="syncMl(${i},'sub',this.checked)"> 서브남</label></div>
+        <div class="fg"><label>소개</label><textarea rows="2" onchange="syncMl(${i},'intro',this.value)">${escHtml(m.intro||'')}</textarea></div>
+        <div class="fg"><label>유형 태그</label><div class="ml-type-tags">${typeTags}</div>
+          <div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap">
+            ${RIDI_ML_TYPES.slice(0,12).map(t=>`<button type="button" class="quick-tag" onclick="addMlTypeTag(${i},'#${t}')">#${escHtml(t)}</button>`).join('')}
+          </div>
+          <input type="text" placeholder="직접 입력 후 Enter" style="margin-top:4px;width:100%" onkeydown="if(event.key==='Enter'){event.preventDefault();addMlTypeTag(${i},this.value);this.value='';}">
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleMlEntry(i){_mlData[i]._open=!_mlData[i]._open;renderMlAccordion();}
+function syncMl(i,key,val){_mlData[i][key]=val;}
+function removeMl(i){_mlData.splice(i,1);renderMlAccordion();}
+function addMlEntry(){_mlData.push({name:'',age:'',intro:'',typeTags:[],sub:false,_open:true});renderMlAccordion();}
+function addMlTypeTag(i,tag){
+  tag=tag.trim();
+  if(!tag) return;
+  if(!tag.startsWith('#')) tag='#'+tag;
+  if(!_mlData[i].typeTags) _mlData[i].typeTags=[];
+  if(!_mlData[i].typeTags.includes(tag)){_mlData[i].typeTags.push(tag);renderMlAccordion();}
+}
+
+// ── Excerpts ──
+function renderExcerpts(){
+  const wrap=document.getElementById('excerptsWrap');
+  if(!wrap) return;
+  wrap.innerHTML=_excerptsData.map((e,i)=>`<div class="excerpt-entry">
+    <div class="excerpt-head">발췌 ${i+1} <button type="button" class="ml-del" onclick="removeExcerpt(${i})">✕</button></div>
+    <div class="fg"><label>위치</label><input type="text" value="${escHtml(e.location||'')}" placeholder="예: 2권 147p" onchange="syncExcerpt(${i},'location',this.value)"></div>
+    <div class="fg"><label>문장</label><textarea rows="2" placeholder="발췌 구절..." onchange="syncExcerpt(${i},'text',this.value)">${escHtml(e.text||'')}</textarea></div>
+    <div class="fg"><label>이유</label><textarea rows="1" placeholder="이 구절을 고른 이유..." onchange="syncExcerpt(${i},'reason',this.value)">${escHtml(e.reason||'')}</textarea></div>
+  </div>`).join('');
+}
+function addExcerpt(){_excerptsData.push({text:'',location:'',reason:''});renderExcerpts();}
+function removeExcerpt(i){_excerptsData.splice(i,1);renderExcerpts();}
+function syncExcerpt(i,key,val){_excerptsData[i][key]=val;}
+
+// ── Rereads ──
+function renderRereads(){
+  const wrap=document.getElementById('rereadsWrap');
+  if(!wrap) return;
+  wrap.innerHTML=_rereadsData.map((r,i)=>`<div class="reread-entry">
+    <span>제${r.nth||i+1}회독</span>
+    <input type="date" value="${escHtml(r.date||'')}" onchange="syncReread(${i},'date',this.value)">
+    <input type="text" value="${escHtml(r.note||'')}" placeholder="메모" onchange="syncReread(${i},'note',this.value)" style="flex:1">
+    <button type="button" class="ml-del" onclick="removeReread(${i})">✕</button>
+  </div>`).join('');
+}
+function addReread(){_rereadsData.push({nth:_rereadsData.length+1,date:'',note:''});renderRereads();}
+function removeReread(i){_rereadsData.splice(i,1);renderRereads();}
+function syncReread(i,key,val){_rereadsData[i][key]=val;}
+
+// ── Cover ──
 function applyCoverUrl(){
   const url=document.getElementById('editCoverUrl').value.trim();
   const preview=document.getElementById('coverPreview');
@@ -304,6 +482,7 @@ function applyCoverUrl(){
   }
 }
 
+// ── Save ──
 function saveBook(){
   const title=document.getElementById('editTitle').value.trim();
   if(!title){showToast('제목을 입력해주세요');return;}
@@ -314,25 +493,35 @@ function saveBook(){
   const cover=document.getElementById('editCoverUrl').value.trim();
   const dateStart=document.getElementById('editDateStart').value;
   const dateEnd=document.getElementById('editDateEnd').value;
-  const reread=parseInt(document.getElementById('editReread')?.value)||0;
-  const url=document.getElementById('editUrl').value.trim();
+  const datebuy=document.getElementById('editDatebuy').value;
+  const platformurl=document.getElementById('editPlatformUrl').value.trim();
+  const platform=document.getElementById('editPlatform').value.trim();
+  const price=Number(document.getElementById('editPrice').value)||0;
+  const booktype=document.getElementById('editBooktype').value;
+  const agerating=document.getElementById('editAgerating').value;
+  const summary=document.getElementById('editSummary').value.trim();
+  const review=document.getElementById('editReview').value.trim();
   const memo=document.getElementById('editMemo').value.trim();
-  const excerpt=document.getElementById('editExcerpt').value.trim();
-  const mlType=document.getElementById('editMlType').value;
-  const flType=document.getElementById('editFlType').value;
   const sojaiWrap=document.getElementById('sojaiTagWrap');
   const relWrap=document.getElementById('relTagWrap');
+  const flTypeTagWrap=document.getElementById('flTypeTagWrap');
   const sojai=sojaiWrap?._getTags?.()||[];
   const rel=relWrap?._getTags?.()||[];
+  const flTypeTags=flTypeTagWrap?._getTags?.()||[];
+
+  const ml=_mlData.filter(m=>m.name||m.intro||(m.typeTags&&m.typeTags.length)).map(m=>({name:m.name||'',age:m.age||'',typeTags:m.typeTags||[],intro:m.intro||'',sub:!!m.sub}));
+  const fl={name:document.getElementById('editFlName').value.trim(),age:document.getElementById('editFlAge').value.trim(),typeTags:[...flTypeTags],intro:document.getElementById('editFlIntro')?.value.trim()||''};
+  const excerpts=_excerptsData.filter(e=>e.text);
+  const rereads=_rereadsData.filter(r=>r.date||r.note);
+
+  const bookData={title,author,status,rating,genres,cover,dateStart,dateEnd,datebuy,platformurl,url:platformurl,platform,price,booktype,agerating,summary,review,memo,sojai,rel,flTypeTags,ml,fl,excerpts,rereads,updatedAt:new Date().toISOString()};
 
   if(_editingId){
     const idx=books.findIndex(b=>b.id===_editingId);
-    if(idx>=0){
-      Object.assign(books[idx],{title,author,status,rating,genres,cover,dateStart,dateEnd,reread,url,memo,excerpt,mlType,flType,sojai,rel,updatedAt:Date.now()});
-    }
+    if(idx>=0) Object.assign(books[idx],bookData);
     showToast('수정했어요');
   }else{
-    books.push({id:generateId(),title,author,status,rating,genres,cover,fav:false,sojai,rel,mlType,flType,memo,excerpt,reread,dateStart,dateEnd,url,createdAt:Date.now(),updatedAt:Date.now()});
+    books.push({id:generateId(),fav:false,createdAt:new Date().toISOString(),...bookData});
     showToast('새 기록을 추가했어요');
   }
   saveData();
@@ -343,6 +532,7 @@ function saveBook(){
 
 document.getElementById('editSave')?.addEventListener('click',saveBook);
 
+// ══════════════ Ridi Import ══════════════
 function openRidiModal(){
   document.getElementById('ridiUrl').value='';
   openModal('ov-ridi');
@@ -373,16 +563,16 @@ async function importFromRidi(){
     const genres=RIDI_GENRES.filter(g=>pageText.includes(g));
     const sojai=RIDI_SOJAI.filter(t=>pageText.includes(t));
     const rel=RIDI_REL.filter(t=>pageText.includes(t));
-    const mlType=RIDI_ML_TYPES.find(t=>pageText.includes(t))||'';
-    const flType=RIDI_FL_TYPES.find(t=>pageText.includes(t))||'';
 
     closeModal('ov-ridi');
     openEditModal({
-      genres,sojai,rel,mlType,flType,
+      genres,sojai,rel,
       title:title.replace(/\s*-\s*리디$/,''),author,cover,
       status:'읽고싶어요',rating:0,fav:false,
-      memo:desc.slice(0,200),excerpt:'',reread:0,
-      dateStart:'',dateEnd:'',url,createdAt:''
+      summary:desc.replace(/\s*\.\.\.\s*$/,'').trim(),
+      review:'',memo:'',ml:[],fl:{},excerpts:[],rereads:[],flTypeTags:[],
+      dateStart:'',dateEnd:'',datebuy:new Date().toISOString().slice(0,10),
+      platformurl:url,url,platform:'리디',price:0,booktype:'',agerating:''
     });
     showToast('리디북스에서 불러왔어요');
   }catch(e){

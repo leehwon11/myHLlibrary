@@ -69,21 +69,21 @@ function normalizeBook(b){
   if(b.genre!==undefined&&b.genres===undefined){b.genres=b.genre;delete b.genre;}
   if(b.sojaiTags!==undefined&&b.sojai===undefined){b.sojai=b.sojaiTags;delete b.sojaiTags;}
   if(b.relTags!==undefined&&b.rel===undefined){b.rel=b.relTags;delete b.relTags;}
-  if(Array.isArray(b.rereads)&&b.reread===undefined){b.reread=b.rereads.length;delete b.rereads;}
+  if(Array.isArray(b.rereads)){if(b.reread===undefined) b.reread=b.rereads.length;}
   if(b.status==='읽고싶은') b.status='읽고싶어요';
   if(!b.createdAt) b.createdAt=Date.now();
   if(b.sojai) b.sojai=b.sojai.map(t=>t.replace(/^#/,''));
   if(b.rel) b.rel=b.rel.map(t=>t.replace(/^#/,''));
-  if(b.ml&&typeof b.mlType==='undefined'){
-    const first=Array.isArray(b.ml)?b.ml[0]:b.ml;
-    if(first&&first.typeTags&&first.typeTags.length) b.mlType=first.typeTags[0].replace(/^#/,'');
+  if(b.ml){
+    const arr=Array.isArray(b.ml)?b.ml:(b.ml.name?[b.ml]:[]);
+    arr.forEach(m=>{if(m.typeTags) m.typeTags=m.typeTags.map(t=>t.replace(/^#/,''));});
+    if(!Array.isArray(b.ml)&&b.ml.name) b.ml=arr;
   }
-  if(b.fl&&typeof b.fl==='object'&&typeof b.flType==='undefined'){
-    if(b.fl.typeTags&&b.fl.typeTags.length) b.flType=b.fl.typeTags[0].replace(/^#/,'');
+  if(b.fl&&typeof b.fl==='object'&&b.fl.typeTags){
+    b.fl.typeTags=b.fl.typeTags.map(t=>t.replace(/^#/,''));
   }
+  if(b.flTypeTags) b.flTypeTags=b.flTypeTags.map(t=>t.replace(/^#/,''));
   if(b.platformurl&&!b.url){b.url=b.platformurl;}
-  if(b.excerpts&&!b.excerpt){b.excerpt=Array.isArray(b.excerpts)?b.excerpts.join('\n'):b.excerpts;}
-  if(b.review&&!b.memo){b.memo=b.review;}
   return b;
 }
 

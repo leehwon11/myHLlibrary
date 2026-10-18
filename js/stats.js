@@ -87,8 +87,8 @@ function renderStats(){
 
   html+=renderTagCloud('소재 태그',done,'sojai');
   html+=renderTagCloud('관계 태그',done,'rel');
-  html+=renderCharBars('남주 유형',done,'mlType','var(--pink)');
-  html+=renderCharBars('여주 유형',done,'flType','var(--lavender)');
+  html+=renderMlTypeBars(done);
+  html+=renderFlTypeBars(done);
   html+=renderHeatmap(done);
 
   c.innerHTML=html;
@@ -123,6 +123,38 @@ function renderCharBars(title,doneBooks,field,color){
     </div>`;
   }).join('');
   return `<div class="section-title">${escHtml(title)}</div><div class="char-bars">${bars}</div>`;
+}
+
+function renderMlTypeBars(doneBooks){
+  const map={};
+  doneBooks.forEach(b=>{
+    const arr=Array.isArray(b.ml)?b.ml:(b.ml&&b.ml.name?[b.ml]:[]);
+    arr.forEach(m=>(m.typeTags||[]).forEach(t=>{const tag=t.replace(/^#/,'');map[tag]=(map[tag]||0)+1;}));
+  });
+  const entries=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  if(!entries.length) return '';
+  const maxC=entries[0][1];
+  const bars=entries.map(([name,count])=>{
+    const pct=Math.round(count/maxC*100);
+    return `<div class="char-bar-row"><div class="char-bar-label">${escHtml(name)}</div><div class="char-bar-track"><div class="char-bar-fill" style="width:${pct}%;background:var(--pink)"></div></div><div class="char-bar-count">${count}</div></div>`;
+  }).join('');
+  return `<div class="section-title">남주 유형</div><div class="char-bars">${bars}</div>`;
+}
+
+function renderFlTypeBars(doneBooks){
+  const map={};
+  doneBooks.forEach(b=>{
+    const tags=[...(b.flTypeTags||[]),...(b.fl&&b.fl.typeTags?b.fl.typeTags:[])].filter((v,i,a)=>a.indexOf(v)===i);
+    tags.forEach(t=>{const tag=t.replace(/^#/,'');map[tag]=(map[tag]||0)+1;});
+  });
+  const entries=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  if(!entries.length) return '';
+  const maxC=entries[0][1];
+  const bars=entries.map(([name,count])=>{
+    const pct=Math.round(count/maxC*100);
+    return `<div class="char-bar-row"><div class="char-bar-label">${escHtml(name)}</div><div class="char-bar-track"><div class="char-bar-fill" style="width:${pct}%;background:var(--lavender)"></div></div><div class="char-bar-count">${count}</div></div>`;
+  }).join('');
+  return `<div class="section-title">여주 유형</div><div class="char-bars">${bars}</div>`;
 }
 
 function renderHeatmap(doneBooks){
