@@ -61,13 +61,27 @@ async function saveData(){
   },400);
 }
 
+function normalizeBook(b){
+  if(!b||!b.id) return b;
+  if(b.datestart!==undefined&&b.dateStart===undefined){b.dateStart=b.datestart;delete b.datestart;}
+  if(b.dateend!==undefined&&b.dateEnd===undefined){b.dateEnd=b.dateend;delete b.dateend;}
+  if(b.created!==undefined&&b.createdAt===undefined){b.createdAt=b.created;delete b.created;}
+  if(b.genre!==undefined&&b.genres===undefined){b.genres=b.genre;delete b.genre;}
+  if(b.sojaiTags!==undefined&&b.sojai===undefined){b.sojai=b.sojaiTags;delete b.sojaiTags;}
+  if(b.relTags!==undefined&&b.rel===undefined){b.rel=b.relTags;delete b.relTags;}
+  if(Array.isArray(b.rereads)&&b.reread===undefined){b.reread=b.rereads.length;delete b.rereads;}
+  if(b.status==='읽고싶은') b.status='읽고싶어요';
+  if(!b.createdAt) b.createdAt=Date.now();
+  return b;
+}
+
 async function loadFromDB(){
   const client=getSupabase();
   if(client){
     try{
       const {data,error}=await client.from(SUPABASE_TABLE).select('data').eq('id',SUPABASE_ROW_ID).single();
       if(!error&&data&&data.data){
-        books=data.data.books||[];
+        books=(data.data.books||[]).map(normalizeBook);
         if(data.data.settings) appSettings={...appSettings,...data.data.settings};
         updateBookCount();
         return;
@@ -78,7 +92,7 @@ async function loadFromDB(){
     const backup=localStorage.getItem('library_backup');
     if(backup){
       const d=JSON.parse(backup);
-      books=d.books||[];
+      books=(d.books||[]).map(normalizeBook);
       if(d.settings) appSettings={...appSettings,...d.settings};
     }
   }catch(e){}
