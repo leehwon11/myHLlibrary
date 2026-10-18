@@ -1,0 +1,16 @@
+{
+  "name": "나의 서재",
+  "short_name": "나의 서재",
+  "description": "나만의 로맨스 독서 다이어리",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#C4A882",
+  "theme_color": "#C4A882",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
