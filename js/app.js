@@ -207,7 +207,7 @@ function importJSON(file){
       if(typeof renderBooks==='function') renderBooks();
       updateBookCount();
       showToast(books.length+'권을 불러왔어요');
-      closeModal('ov-import');
+      closeModal('ov-export');
     }catch(err){
       showToast('JSON 파싱 실패: '+err.message);
     }
