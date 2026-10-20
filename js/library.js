@@ -1,587 +1,196 @@
-// ══════════════ 나의 서재 — Library (Book CRUD, Render, Ridi) ══════════════
-
-let _editingId=null;
-let _mlData=[];
-let _flTypeTagsData=[];
-let _excerptsData=[];
-let _rereadsData=[];
-const STICKER_COLORS=['sticker-pink','sticker-mint','sticker-lavender','sticker-yellow'];
-
-function getStatusClass(s){
-  if(s==='완독') return 'washi-done';
-  if(s==='읽는중') return 'washi-reading';
-  return 'washi-wish';
-}
-
-function highlightText(text,query){
-  if(!query) return escHtml(text);
-  const safe=escHtml(text);
-  const q=query.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-  return safe.replace(new RegExp(`(${q})`,'gi'),'<mark class="search-hl">$1</mark>');
-}
-
-function renderBooks(){
-  const grid=document.getElementById('bookGrid');
-  if(!grid) return;
-  const query=(document.getElementById('searchInput')?.value||'').trim().toLowerCase();
-  const activePills=[...document.querySelectorAll('.filter-pill.active')].map(p=>p.dataset.filter);
-  const showAll=activePills.includes('all')||activePills.length===0;
+// ══════════════ RENDER BOOKS ══════════════
+function stars(n){return[1,2,3,4,5].map(i=>`<span class="s ${i<=n?'on':'off'}">★</span>`).join('');}
+function getSortedFiltered(){
+  saveFilterState();
+  const q=(document.getElementById('searchInput')?.value||'').toLowerCase();
   const sort=document.getElementById('sortSelect')?.value||'newest';
-
   let list=books.filter(b=>{
-    if(query){
-      const hay=[b.title,b.author,b.memo,b.summary,b.review,...(b.genres||[]),...(b.sojai||[]),...(b.rel||[])].join(' ').toLowerCase();
-      if(!hay.includes(query)) return false;
-    }
-    if(showAll) return true;
-    if(activePills.includes('fav')&&b.fav) return true;
-    if(activePills.includes(b.status)) return true;
-    return false;
+    const bG=b.genre||[];const cf=currentFilter.trim();
+    const gm=cf==='전체'||bG.map(g=>g.trim()).includes(cf);
+    const sm=!currentStatusFilter||b.status===currentStatusFilter;
+    const fm=!showFavOnly||!!b.fav;
+    const allTags=[...(b.sojaiTags||b.tags||[]),...(b.relTags||b.themes||[])];
+    const qm=!q||[b.title,b.author,...bG,...allTags].join(' ').toLowerCase().includes(q);
+    return gm&&sm&&fm&&qm;
   });
+  if(sort==='newest')list.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  else if(sort==='oldest')list.sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
+  else if(sort==='rating-desc')list.sort((a,b)=>(b.rating||0)-(a.rating||0));
+  else if(sort==='rating-asc')list.sort((a,b)=>(a.rating||0)-(b.rating||0));
+  else if(sort==='title')list.sort((a,b)=>a.title.localeCompare(b.title,'ko'));
+  else if(sort==='custom'&&customOrder){const om=new Map(customOrder.map((id,i)=>[id,i]));list.sort((a,b)=>(om.has(a.id)?om.get(a.id):9999)-(om.has(b.id)?om.get(b.id):9999));}
+  return list;
+}
+function renderCard(b,q){
+  const gKey=(b.genre||[])[0]||'기타';const g=getGenre(gKey);
+  const sb=b.status?({완독:'<span class="status-badge sb-완독">✅ 완독</span>',읽는중:'<span class="status-badge sb-읽는중">📖 읽는중</span>',읽고싶어요:'<span class="status-badge sb-읽고싶어요">🔖 읽고싶어요</span>'}[b.status]||''):'';
+  const ageBadge=b.agerating?`<span class="age-badge age-${b.agerating}">${b.agerating}</span>`:'';
+  const allTags=[...(b.sojaiTags||b.tags||[]),...(b.relTags||b.themes||[])];
+  const tags=allTags.slice(0,3).map(t=>`<span class="ctag ctag-click" data-tag="${encodeURIComponent(t)}" onclick="event.stopPropagation();searchByTag(decodeURIComponent(this.dataset.tag))">${escHtml(t)}</span>`).join('');
+  const dot=`<span class="genre-dot" style="background:${hexToRgba(g.color,.13)};color:${g.color}">${escHtml(g.name)}</span>`;
+  const favBtn=`<button class="fav-btn${b.fav?' on':''}" onclick="event.stopPropagation();toggleFav('${b.id}')" title="즐겨찾기"><span class="fav-star">★</span></button>`;
+  const titleHl=q?highlight(b.title,q):escHtml(b.title);
+  const authorHl=q?highlight(b.author||'작가 미상',q):escHtml(b.author||'작가 미상');
 
-  list.sort((a,b)=>{
-    switch(sort){
-      case 'oldest': return (a.createdAt||0)-(b.createdAt||0);
-      case 'title': return (a.title||'').localeCompare(b.title||'','ko');
-      case 'author': return (a.author||'').localeCompare(b.author||'','ko');
-      case 'rating': return (b.rating||0)-(a.rating||0);
-      default: return (b.createdAt||0)-(a.createdAt||0);
-    }
-  });
+  const moodHtml=b.moods&&b.moods.length?`<div class="mood-card-tag">${MOOD_OPTIONS.find(m=>m.label===b.moods[0])?.emoji||''} ${b.moods[0]}</div>`:'';
+  const rereadBadge=(b.rereads&&b.rereads.length)?`<span class="card-reread-badge">🔄 ${b.rereads.length}회독</span>`:'';
+  const cover=b.cover?`<div class="card-cover"><img src="${b.cover}" alt="">${dot}${sb}${rereadBadge}${favBtn}</div>`:`<div class="card-cover"><div class="card-cover-ph" style="background:${hexToRgba(g.color,.06)}"><span class="ph-icon" style="color:${g.color};opacity:.3">📖</span><span class="ph-title">${escHtml(b.title)}</span></div>${dot}${sb}${rereadBadge}${favBtn}</div>`;
+  return`<div class="book-card" draggable="true" data-id="${b.id}" onclick="openDetail('${b.id}')" ondragstart="onDragStart(event,'${b.id}')" ondragover="onDragOver(event)" ondrop="onDrop(event,'${b.id}')" ondragleave="onDragLeave(event)" ondragend="onDragEnd(event)">${cover}<div class="card-body"><div style="display:flex;align-items:flex-start;gap:5px;margin-bottom:3px"><div class="card-title" style="flex:1;margin-bottom:0">${titleHl}</div>${ageBadge}</div><div class="card-author">${authorHl}</div><div class="card-stars">${stars(b.rating||0)}</div><div class="card-tags">${tags}</div>${moodHtml}</div></div>`;
+}
+function render(){
+  document.getElementById('bookChip').textContent=books.length+'권';updateLogo();
+  const q=(document.getElementById('searchInput')?.value||'').toLowerCase();
+  const filtered=getSortedFiltered();const grid=document.getElementById('bookGrid');
+  if(!filtered.length){grid.innerHTML='<div class="empty"><div class="empty-ico">📚</div><p>등록된 책이 없어요.</p></div>';return;}
+  grid.innerHTML='';
+  filtered.forEach(b=>{grid.insertAdjacentHTML('beforeend',renderCard(b,q));});
+}
+function setStatusFilter(val){currentStatusFilter=val;document.querySelectorAll('.sp').forEach(p=>p.classList.toggle('sp-on',p.dataset.sv===val));render();}
 
-  if(!list.length){
-    grid.innerHTML=`<div class="empty-state"><div class="empty-icon">📖</div><p>${query?'검색 결과가 없어요':'아직 기록이 없어요. 첫 이야기를 적어볼까요?'}</p></div>`;
-    return;
+// ══════════════ 드래그 앤 드롭 ══════════════
+let _dragId=null;
+function onDragStart(e,id){_dragId=id;e.currentTarget.classList.add('dragging');}
+function onDragOver(e){e.preventDefault();const card=e.currentTarget.closest('.book-card');if(card&&card.dataset.id!==_dragId)card.classList.add('drag-over');}
+function onDragLeave(e){e.currentTarget.closest('.book-card')?.classList.remove('drag-over');}
+function onDragEnd(e){e.currentTarget.classList.remove('dragging');document.querySelectorAll('.book-card').forEach(c=>c.classList.remove('drag-over'));}
+function onDrop(e,targetId){
+  e.preventDefault();document.querySelectorAll('.book-card').forEach(c=>c.classList.remove('drag-over','dragging'));
+  if(!_dragId||_dragId===targetId){_dragId=null;return;}
+  let order=customOrder?[...customOrder]:books.map(b=>b.id);
+  const fi=order.indexOf(_dragId),ti=order.indexOf(targetId);
+  if(fi===-1){order=books.map(b=>b.id);}const fi2=order.indexOf(_dragId),ti2=order.indexOf(targetId);
+  if(fi2!==-1&&ti2!==-1){order.splice(fi2,1);order.splice(ti2,0,_dragId);}
+  customOrder=order;try{sessionStorage.setItem('myLib_customOrder',JSON.stringify(customOrder));}catch(e){}
+  const sel=document.getElementById('sortSelect');if(sel)sel.value='custom';
+  _dragId=null;render();showToast('순서가 변경됐어요! 정렬: 사용자 지정 순서');
+}
+
+// ══════════════ 표지 검색 ══════════════
+function applyCoverUrl(){const inp=document.getElementById('coverUrlInput');if(!inp)return;const url=inp.value.trim();if(!url){showToast('URL을 입력해주세요.');return;}currentCover=url;document.getElementById('coverBox').innerHTML=`<img src="${currentCover}" alt="" onerror="this.parentNode.innerHTML='<div class=\\'cover-hint\\'><span class=\\'ci\\'>⚠️</span>이미지를 불러올 수 없어요</div>'">`;inp.value='';showToast('표지 URL이 적용됐어요!');}
+
+// ══════════════ EDIT MODAL ══════════════
+function openAdd(){editId=null;currentCover=null;currentStar=0;currentStatusVal='읽고싶어요';excerptsData=[];currentCtagsSojai=[];currentCtagsRel=[];currentFlTypeTags=[];currentGenreTags=[];currentMoods=[];mlData=[];rereadData=[];document.getElementById('editModalTitle').textContent='책 추가';document.getElementById('delBtn').style.display='none';clearForm();renderExcerpts();updateStatusUI();renderTagsSojai();renderTagsRel();renderFlTypeTags();renderMoodSelector();renderGenreTags();renderStarPicker();document.getElementById('editOv').classList.add('open');}
+function openEdit(id){
+  const b=books.find(x=>x.id===id);if(!b)return;
+  editId=id;currentStar=b.rating||0;currentCover=b.cover||null;currentStatusVal=b.status||'완독';excerptsData=(b.excerpts||[]).map(e=>({...e,open:false}));currentMoods=b.moods?[...b.moods]:[];
+  document.getElementById('editModalTitle').textContent='책 수정';document.getElementById('delBtn').style.display='block';
+  document.getElementById('f-title').value=b.title||'';document.getElementById('f-author').value=b.author||'';
+  currentCtagsSojai=b.sojaiTags?[...b.sojaiTags]:[...(b.tags||[]),...(b.themes||[])];currentCtagsRel=b.relTags?[...b.relTags]:[];currentFlTypeTags=b.flTypeTags?[...b.flTypeTags]:(b.fl&&b.fl.typeTags?[...b.fl.typeTags]:[]);
+  renderTagsSojai();renderTagsRel();renderFlTypeTags();renderMoodSelector();
+  mlData=Array.isArray(b.ml)?b.ml.map(m=>({...m,typeTags:m.typeTags||[],open:false})):(b.ml&&b.ml.name?[{...b.ml,typeTags:[],open:false}]:[]);renderMlAcc();
+  const fl=b.fl||{};document.getElementById('f-fl-name').value=fl.name||'';document.getElementById('f-fl-age').value=fl.age||'';const fliEl=document.getElementById('f-fl-intro');if(fliEl)fliEl.value=fl.intro||'';
+  document.getElementById('f-summary').value=b.summary||'';document.getElementById('f-review').value=b.review||'';const memoEl=document.getElementById('f-memo');if(memoEl)memoEl.value=b.memo||'';document.getElementById('f-booktype').value=b.booktype||'';document.getElementById('f-agerating').value=b.agerating||'';
+  document.getElementById('f-platform').value=b.platform||'';const pue=document.getElementById('f-platformurl');if(pue)pue.value=b.platformurl||'';
+  rereadData=(b.rereads||[]).map(r=>({...r}));renderRereadList();
+  document.getElementById('f-price').value=b.price||'';document.getElementById('f-datebuy').value=b.datebuy||'';document.getElementById('f-datestart').value=b.datestart||'';document.getElementById('f-dateend').value=b.dateend||'';
+
+  currentGenreTags=Array.isArray(b.genre)?[...b.genre]:(b.genre?[b.genre]:[]);renderGenreTags();
+  document.getElementById('coverBox').innerHTML=currentCover?`<img src="${currentCover}" alt="">`:'<div class="cover-hint"><span class="ci">🔗</span>아래에<br>이미지 URL을 입력하세요</div>';
+  renderStarPicker();updateStatusUI();renderExcerpts();
+  ['f-summary','f-review','f-memo','f-fl-intro'].forEach(id=>autosizeEl(document.getElementById(id)));
+  document.getElementById('editOv').classList.add('open');
+}
+function clearForm(){['f-title','f-author','f-summary','f-review','f-memo','f-platform','f-platformurl','f-price','f-datebuy','f-datestart','f-dateend','f-fl-name','f-fl-age','f-fl-intro'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});rereadData=[];renderRereadList();currentGenreTags=[];renderGenreTags();mlData=[];renderMlAcc();document.getElementById('f-booktype').value='';document.getElementById('f-agerating').value='';document.getElementById('coverBox').innerHTML='<div class="cover-hint"><span class="ci">🔗</span>아래에<br>이미지 URL을 입력하세요</div>';currentCtagsSojai=[];currentCtagsRel=[];currentFlTypeTags=[];renderTagsSojai();renderTagsRel();renderFlTypeTags();updateStarUI();['f-summary','f-review','f-memo','f-fl-intro'].forEach(id=>autosizeEl(document.getElementById(id)));}
+function closeEdit(){document.getElementById('editOv').classList.remove('open');}
+function removeCover(){currentCover=null;document.getElementById('coverBox').innerHTML='<div class="cover-hint"><span class="ci">🔗</span>아래에<br>이미지 URL을 입력하세요</div>';}
+function setStar(n){currentStar=n;updateStarUI();}
+function updateStarUI(){document.querySelectorAll('.sr-btn').forEach(b=>b.classList.toggle('on',parseInt(b.dataset.v)<=currentStar));const lbl=document.getElementById('starLabel');if(lbl)lbl.textContent=currentStar?STAR_LABELS[currentStar]:'';}
+function renderStarPicker(){const row=document.getElementById('starRow');if(!row)return;row.innerHTML='';for(let i=1;i<=5;i++){const btn=document.createElement('button');btn.className='sr-btn';btn.dataset.v=i;btn.textContent='★';btn.onclick=()=>setStar(currentStar===i?0:i);row.appendChild(btn);}const lbl=document.createElement('span');lbl.id='starLabel';lbl.className='star-label';row.appendChild(lbl);updateStarUI();}// 상태 전환 시 관련 날짜 자동 제안 (읽는중→읽기 시작일 / 완독→완독일)
+function setStatus(v){
+  const t=new Date().toISOString().slice(0,10);
+  if(v==='읽는중'&&currentStatusVal!=='읽는중'){
+    const ds=document.getElementById('f-datestart');
+    if(ds&&!ds.value){ds.value=t;showToast('읽기 시작일을 오늘('+t+')로 자동 입력했어요.');}
   }
-
-  grid.innerHTML=list.map(b=>{
-    const gc=(b.genres||[]).length?getGenreColor(b.genres[0]):'#808080';
-    const stars='★'.repeat(b.rating||0)+'<span class="off">'+'★'.repeat(5-(b.rating||0))+'</span>';
-    const dateStr=b.dateEnd||b.dateStart||'';
-    const coverHtml=b.cover?`<img src="${escHtml(b.cover)}" alt="" loading="lazy">`:'📖';
-    const allTags=[...(b.sojai||[]),...(b.rel||[])];
-    const stickers=allTags.slice(0,5).map((t,i)=>`<span class="sticker ${STICKER_COLORS[i%4]}">${escHtml(t)}</span>`).join('');
-    const titleHtml=query?highlightText(b.title,query):escHtml(b.title);
-    const authorHtml=query?highlightText(b.author||'',query):escHtml(b.author||'');
-    return `<div class="diary-entry" onclick="openDetail('${b.id}')">
-      <button class="entry-fav${b.fav?' on':''}" onclick="event.stopPropagation();toggleFav('${b.id}')">♥</button>
-      <div class="washi ${getStatusClass(b.status)}"></div>
-      ${dateStr?`<div class="entry-date">${escHtml(dateStr)}</div>`:''}
-      <div class="entry-cover">${coverHtml}</div>
-      <div class="entry-title">${titleHtml}</div>
-      <div class="entry-author">${authorHtml}</div>
-      ${(b.rating||0)?`<div class="entry-stars">${stars}</div>`:''}
-      ${(b.genres||[]).length?`<span class="entry-genre" style="background:${hexToRgba(gc,.15)};color:${gc}">${escHtml(b.genres[0])}</span>`:''}
-      ${stickers?`<div class="sticker-row">${stickers}</div>`:''}
-    </div>`;
-  }).join('');
-}
-
-// ══════════════ Detail View ══════════════
-function openDetail(id){
-  const b=books.find(x=>x.id===id);
-  if(!b) return;
-  const body=document.getElementById('detailBody');
-  if(!body) return;
-  const gc=(b.genres||[]).length?getGenreColor(b.genres[0]):'#808080';
-  const stars='★'.repeat(b.rating||0)+'<span style="color:var(--ink-faint)">'+'★'.repeat(5-(b.rating||0))+'</span>';
-  const coverHtml=b.cover?`<img src="${escHtml(b.cover)}" alt="">`:'<span style="font-size:48px">📖</span>';
-
-  const statusColors={'완독':'var(--mint-bg)','읽는중':'var(--yellow-bg)','읽고싶어요':'var(--lavender-bg)'};
-  const statusTextColors={'완독':'var(--green)','읽는중':'var(--amber)','읽고싶어요':'var(--lavender)'};
-
-  const allTags=[...(b.sojai||[]),...(b.rel||[])];
-  const tagHtml=allTags.map((t,i)=>`<span class="sticker ${STICKER_COLORS[i%4]}">${escHtml(t)}</span>`).join('');
-
-  let metaChips='';
-  if(b.booktype) metaChips+=`<span class="det-chip">${escHtml(b.booktype)}</span>`;
-  if(b.platform) metaChips+=`<span class="det-chip">${escHtml(b.platform)}</span>`;
-  if(b.agerating) metaChips+=`<span class="det-chip">${escHtml(b.agerating)}</span>`;
-  if(b.price) metaChips+=`<span class="det-chip">${Number(b.price).toLocaleString()}원</span>`;
-
-  let datesHtml='';
-  if(b.dateStart||b.dateEnd||b.datebuy){
-    let parts=[];
-    if(b.dateStart||b.dateEnd) parts.push(`독서 기간: ${escHtml(b.dateStart||'?')} ~ ${escHtml(b.dateEnd||'?')}`);
-    if(b.datebuy) parts.push(`구매일: ${escHtml(b.datebuy)}`);
-    datesHtml=`<div class="det-section"><div class="det-section-title">날짜</div><div style="font-size:13px;color:var(--ink-light);line-height:1.8">${parts.join('<br>')}</div></div>`;
+  if(v==='완독'&&currentStatusVal!=='완독'){
+    const de=document.getElementById('f-dateend');
+    if(de&&!de.value){de.value=t;showToast('완독일을 오늘('+t+')로 자동 입력했어요.');}
   }
-
-  // 남주/여주 캐릭터 카드
-  let charHtml='';
-  const mlArr=Array.isArray(b.ml)?b.ml:(b.ml&&b.ml.name?[b.ml]:[]);
-  const fl=b.fl&&typeof b.fl==='object'?b.fl:null;
-  if(mlArr.length||fl){
-    let cards='';
-    mlArr.forEach(m=>{
-      const typeTags=(m.typeTags||[]).map(t=>`<span class="det-char-tag">${escHtml(t)}</span>`).join('');
-      cards+=`<div class="det-char-card ml">
-        <div class="det-char-label">💙 ${m.sub?'서브남':'남주'}</div>
-        <div class="det-char-name">${escHtml(m.name||'이름 미입력')}</div>
-        ${m.age?`<div class="det-char-age">${escHtml(m.age)}</div>`:''}
-        ${typeTags?`<div class="det-char-tags">${typeTags}</div>`:''}
-        ${m.intro?`<p class="det-char-intro">${escHtml(m.intro)}</p>`:''}
-      </div>`;
-    });
-    if(fl&&fl.name){
-      const flTags=(fl.typeTags||b.flTypeTags||[]).map(t=>`<span class="det-char-tag">${escHtml(t)}</span>`).join('');
-      cards+=`<div class="det-char-card fl">
-        <div class="det-char-label">🩷 여주</div>
-        <div class="det-char-name">${escHtml(fl.name)}</div>
-        ${fl.age?`<div class="det-char-age">${escHtml(fl.age)}</div>`:''}
-        ${flTags?`<div class="det-char-tags">${flTags}</div>`:''}
-        ${fl.intro?`<p class="det-char-intro">${escHtml(fl.intro)}</p>`:''}
-      </div>`;
-    }
-    charHtml=`<div class="det-section"><div class="det-section-title">주인공 정보</div><div class="det-char-grid">${cards}</div></div>`;
-  }
-
-  let summaryHtml=b.summary?`<div class="det-section"><div class="det-section-title">줄거리</div><div class="det-text" style="white-space:pre-wrap">${escHtml(b.summary)}</div></div>`:'';
-  let reviewHtml=b.review?`<div class="det-section"><div class="det-section-title">총평</div><div class="det-text" style="white-space:pre-wrap">${escHtml(b.review)}</div></div>`:'';
-  let memoHtml=b.memo?`<div class="det-section"><div class="det-section-title">메모</div><div class="det-text det-memo">${escHtml(b.memo)}</div></div>`:'';
-
-  let excerptHtml='';
-  const excerpts=b.excerpts||[];
-  if(excerpts.length){
-    const items=excerpts.map((e,i)=>{
-      const ex=typeof e==='string'?{text:e}:e;
-      return `<div class="det-excerpt">
-        <div class="det-excerpt-label">발췌 ${i+1}</div>
-        ${ex.location?`<div class="det-excerpt-loc">📍 ${escHtml(ex.location)}</div>`:''}
-        <div class="det-excerpt-text">"${escHtml(ex.text||'')}"</div>
-        ${ex.reason?`<div class="det-excerpt-reason">💭 ${escHtml(ex.reason)}</div>`:''}
-      </div>`;
-    }).join('');
-    excerptHtml=`<div class="det-section"><div class="det-section-title">발췌</div>${items}</div>`;
-  } else if(b.excerpt){
-    excerptHtml=`<div class="det-section"><div class="det-section-title">인상 깊은 구절</div><div class="det-text" style="font-style:italic">"${escHtml(b.excerpt)}"</div></div>`;
-  }
-
-  let rereadHtml='';
-  const rereads=b.rereads||[];
-  if(rereads.length){
-    const items=rereads.map(r=>`<div class="det-reread-item"><span class="det-reread-num">제${r.nth||1}회독</span><span style="color:var(--ink-light)">${escHtml(r.date||'')}</span>${r.note?`<span style="font-size:12px;color:var(--ink-muted)">${escHtml(r.note)}</span>`:''}</div>`).join('');
-    rereadHtml=`<div class="det-section"><div class="det-section-title">재독 기록</div>${items}</div>`;
-  }
-
-  const platformLink=b.platformurl||b.url;
-
-  body.innerHTML=`
-    <div class="det-header">
-      <div class="det-cover">${coverHtml}</div>
-      <div class="det-info">
-        <div class="det-title">${escHtml(b.title)}</div>
-        <div class="det-author">${escHtml(b.author||'')}</div>
-        <div class="det-stars">${stars}</div>
-        <div class="det-meta">
-          <span class="entry-genre" style="background:${statusColors[b.status]||'var(--ink-faint)'};color:${statusTextColors[b.status]||'var(--ink-muted)'};padding:3px 10px">${escHtml(b.status||'')}</span>
-          ${(b.genres||[]).map(g=>{const c=getGenreColor(g);return `<span class="entry-genre" style="background:${hexToRgba(c,.15)};color:${c}">${escHtml(g)}</span>`;}).join('')}
-        </div>
-        ${metaChips?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${metaChips}</div>`:''}
-        ${b.fav?'<div style="font-size:14px;color:#e74c5e;margin-top:4px">♥ 즐겨찾기</div>':''}
-        ${platformLink?`<a href="${escHtml(platformLink)}" target="_blank" rel="noopener" style="font-size:12px;color:var(--blue);text-decoration:underline;display:inline-block;margin-top:4px">🔗 원본 링크</a>`:''}
-      </div>
-    </div>
-    ${tagHtml?`<div class="sticker-row" style="margin-bottom:12px">${tagHtml}</div>`:''}
-    ${charHtml}${summaryHtml}${datesHtml}${reviewHtml}${memoHtml}${excerptHtml}${rereadHtml}
-  `;
-
-  document.getElementById('detailEdit').onclick=()=>{closeModal('ov-detail');openEditModal(b);};
-  document.getElementById('detailDelete').onclick=()=>{closeModal('ov-detail');deleteBook(b.id);};
-  openModal('ov-detail');
+  currentStatusVal=v;updateStatusUI();
 }
+function updateStatusUI(){document.querySelectorAll('.st-opt').forEach(b=>b.classList.toggle('sel-on',b.dataset.v===currentStatusVal));}
 
-function toggleFav(id){
-  const b=books.find(x=>x.id===id);
-  if(!b) return;
-  b.fav=!b.fav;
-  saveData();
-  renderBooks();
-}
-
-function deleteBook(id){
-  showConfirm('이 기록을 삭제할까요?',()=>{
-    books=books.filter(b=>b.id!==id);
-    saveData();
-    renderBooks();
-    updateBookCount();
-    showToast('삭제했어요');
-  });
-}
-
-// ══════════════ Edit Form ══════════════
-function openEditModal(book){
-  _editingId=book?book.id:null;
-  const isNew=!book;
-  const b=book||{genres:[],sojai:[],rel:[],rating:0,status:'읽고싶어요',ml:[],fl:{},excerpts:[],rereads:[],flTypeTags:[]};
-  document.getElementById('editModalTitle').textContent=isNew?'새 기록':'기록 수정';
-  document.getElementById('editDelete').hidden=isNew;
-  if(!isNew) document.getElementById('editDelete').onclick=()=>{closeModal('ov-edit');deleteBook(b.id);};
-
-  _mlData=Array.isArray(b.ml)?b.ml.map(m=>({...m,typeTags:m.typeTags||[]})):(b.ml&&b.ml.name?[{...b.ml,typeTags:b.ml.typeTags||[]}]:[]);
-  _flTypeTagsData=[...(b.flTypeTags||[]),...(b.fl&&b.fl.typeTags?b.fl.typeTags:[])].filter((v,i,a)=>a.indexOf(v)===i);
-  _excerptsData=Array.isArray(b.excerpts)?b.excerpts.map(e=>typeof e==='string'?{text:e,location:'',reason:''}:{...e}):[];
-  _rereadsData=Array.isArray(b.rereads)?b.rereads.map(r=>({...r})):[];
-
-  const body=document.getElementById('editModalBody');
-  body.innerHTML=buildEditForm(b);
-  initEditForm(b);
-  openModal('ov-edit');
-}
-
-function buildEditForm(b){
-  const genreChecks=DEFAULT_GENRES.map(g=>{
-    const checked=(b.genres||[]).includes(g.name)?'checked':'';
-    return `<label style="display:inline-flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;margin-right:8px;margin-bottom:4px"><input type="checkbox" class="edit-genre-cb" value="${escHtml(g.name)}" ${checked}><span class="sticker" style="background:${hexToRgba(g.color,.15)};color:${g.color};font-size:13px;padding:1px 6px;border-radius:6px">${escHtml(g.name)}</span></label>`;
-  }).join('');
-
-  const fl=b.fl&&typeof b.fl==='object'?b.fl:{};
-
-  return `
-  <div class="form-grid">
-    <div class="form-col">
-      <div class="cover-box" id="coverPreview">
-        ${b.cover?`<img src="${escHtml(b.cover)}" alt="">`:
-        `<div class="cover-hint"><span class="ci">📷</span>표지 이미지</div>`}
-      </div>
-      <div class="cover-url-row">
-        <input type="url" id="editCoverUrl" placeholder="이미지 URL" value="${escHtml(b.cover||'')}">
-        <button type="button" class="btn btn-sm" onclick="applyCoverUrl()">적용</button>
-      </div>
-    </div>
-    <div class="form-col">
-      <div class="fg"><label>제목</label><input type="text" id="editTitle" value="${escHtml(b.title||'')}" placeholder="책 제목"></div>
-      <div class="fg"><label>작가</label><input type="text" id="editAuthor" value="${escHtml(b.author||'')}" placeholder="작가명"></div>
-
-      <div class="fg"><label>상태</label>
-        <div class="status-selector" id="editStatusWrap">
-          <button type="button" class="status-opt${b.status==='완독'?' sel-on':''}" data-status="완독">완독</button>
-          <button type="button" class="status-opt${b.status==='읽는중'?' sel-on':''}" data-status="읽는중">읽는중</button>
-          <button type="button" class="status-opt${b.status==='읽고싶어요'?' sel-on':''}" data-status="읽고싶어요">읽고싶어요</button>
-        </div>
-      </div>
-
-      <div class="fg"><label>별점</label>
-        <div class="star-row" id="editStarRow">
-          ${[1,2,3,4,5].map(n=>`<button type="button" class="sr-btn${n<=(b.rating||0)?' on':''}" data-star="${n}">★</button>`).join('')}
-          <span class="star-label-text" id="editStarLabel">${STAR_LABELS[b.rating||0]||''}</span>
-        </div>
-      </div>
-
-      <div class="fg"><label>장르</label><div style="line-height:1.8">${genreChecks}</div></div>
-
-      <div class="row2">
-        <div class="fg"><label>작품 유형</label>
-          <select id="editBooktype"><option value="">선택 안함</option>${['단행본','장편소설','단편소설','시리즈','웹소설'].map(t=>`<option value="${escHtml(t)}"${b.booktype===t?' selected':''}>${escHtml(t)}</option>`).join('')}</select>
-        </div>
-        <div class="fg"><label>연령 등급</label>
-          <select id="editAgerating"><option value="">선택 안함</option>${['전체 이용가','15세 이용가','19세 이용가'].map(t=>`<option value="${escHtml(t)}"${b.agerating===t?' selected':''}>${escHtml(t)}</option>`).join('')}</select>
-        </div>
-      </div>
-
-      <div class="row2">
-        <div class="fg"><label>플랫폼</label><input type="text" id="editPlatform" value="${escHtml(b.platform||'')}" placeholder="리디, 시리즈 등"></div>
-        <div class="fg"><label>가격</label><input type="number" id="editPrice" value="${b.price||''}" placeholder="0" min="0"></div>
-      </div>
-
-      <div class="row2">
-        <div class="fg"><label>시작일</label><input type="date" id="editDateStart" value="${escHtml(b.dateStart||'')}"></div>
-        <div class="fg"><label>완독일</label><input type="date" id="editDateEnd" value="${escHtml(b.dateEnd||'')}"></div>
-      </div>
-      <div class="fg"><label>구매일</label><input type="date" id="editDatebuy" value="${escHtml(b.datebuy||'')}" style="width:200px"></div>
-
-      <div class="sec-label">소재 태그</div>
-      <div class="tag-input-wrap" id="sojaiTagWrap"></div>
-      <div class="quick-tags" id="sojaiQuick"></div>
-
-      <div class="sec-label">관계 태그</div>
-      <div class="tag-input-wrap" id="relTagWrap"></div>
-      <div class="quick-tags" id="relQuick"></div>
-
-      <div class="sec-label">💙 남주 정보</div>
-      <div id="mlAccordion"></div>
-      <button type="button" class="btn btn-sm" onclick="addMlEntry()" style="margin-top:8px">💙 남주 추가</button>
-
-      <div class="sec-label">🩷 여주 정보</div>
-      <div class="char-form-block">
-        <div class="row2">
-          <div class="fg"><label>이름</label><input type="text" id="editFlName" value="${escHtml(fl.name||'')}" placeholder="여주 이름"></div>
-          <div class="fg"><label>나이</label><input type="text" id="editFlAge" value="${escHtml(fl.age||'')}" placeholder="나이"></div>
-        </div>
-        <div class="fg"><label>소개</label><textarea id="editFlIntro" rows="2" placeholder="여주 소개...">${escHtml(fl.intro||'')}</textarea></div>
-        <div class="sec-label" style="font-size:12px">여주 유형 태그</div>
-        <div class="tag-input-wrap" id="flTypeTagWrap"></div>
-        <div class="quick-tags" id="flTypeQuick"></div>
-      </div>
-
-      <div class="fg"><label>플랫폼 URL</label><input type="url" id="editPlatformUrl" value="${escHtml(b.platformurl||b.url||'')}" placeholder="원본 링크 (선택)"></div>
-      <div class="fg"><label>줄거리</label><textarea id="editSummary" rows="3" placeholder="간략한 줄거리...">${escHtml(b.summary||'')}</textarea></div>
-      <div class="fg"><label>총평</label><textarea id="editReview" rows="3" placeholder="총평, 감상...">${escHtml(b.review||'')}</textarea></div>
-      <div class="fg"><label>메모</label><textarea id="editMemo" rows="2" placeholder="비공개 메모...">${escHtml(b.memo||'')}</textarea></div>
-
-      <div class="sec-label">발췌</div>
-      <div id="excerptsWrap"></div>
-      <button type="button" class="btn btn-sm" onclick="addExcerpt()" style="margin-top:8px">📝 발췌 추가</button>
-
-      <div class="sec-label">재독 기록</div>
-      <div id="rereadsWrap"></div>
-      <button type="button" class="btn btn-sm" onclick="addReread()" style="margin-top:8px">🔄 재독 추가</button>
-    </div>
-  </div>`;
-}
-
-function initEditForm(b){
-  document.querySelectorAll('#editStatusWrap .status-opt').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      document.querySelectorAll('#editStatusWrap .status-opt').forEach(x=>x.classList.remove('sel-on'));
-      btn.classList.add('sel-on');
-    });
-  });
-
-  document.querySelectorAll('#editStarRow .sr-btn').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      const val=parseInt(btn.dataset.star);
-      const current=[...document.querySelectorAll('#editStarRow .sr-btn.on')].length;
-      const newVal=val===current?0:val;
-      document.querySelectorAll('#editStarRow .sr-btn').forEach(x=>{
-        x.classList.toggle('on',parseInt(x.dataset.star)<=newVal);
-      });
-      document.getElementById('editStarLabel').textContent=STAR_LABELS[newVal]||'';
-    });
-  });
-
-  initTagWrap('sojaiTagWrap','sojaiQuick',RIDI_SOJAI,b.sojai||[]);
-  initTagWrap('relTagWrap','relQuick',RIDI_REL,b.rel||[]);
-  initTagWrap('flTypeTagWrap','flTypeQuick',RIDI_FL_TYPES.map(t=>'#'+t),_flTypeTagsData);
-
-  renderMlAccordion();
-  renderExcerpts();
-  renderRereads();
-}
-
-// ── Tag Input ──
-function initTagWrap(wrapId,quickId,options,initial){
-  const wrap=document.getElementById(wrapId);
-  const quick=document.getElementById(quickId);
-  if(!wrap) return;
-
-  let tags=[...initial];
-  const render=()=>{
-    const chips=tags.map(t=>`<span class="tag-chip sticker-mint">${escHtml(t)}<span class="tag-remove" data-tag="${escHtml(t)}">&times;</span></span>`).join('');
-    wrap.innerHTML=chips+`<input type="text" class="tag-input" placeholder="태그 입력...">`;
-    const input=wrap.querySelector('.tag-input');
-    input.addEventListener('keydown',e=>{
-      if(e.key==='Enter'&&e.target.value.trim()){
-        e.preventDefault();
-        const v=e.target.value.trim();
-        if(!tags.includes(v)){tags.push(v);render();}
-        else e.target.value='';
-      }
-      if(e.key==='Backspace'&&!e.target.value&&tags.length){
-        tags.pop();render();
-      }
-    });
-    wrap.querySelectorAll('.tag-remove').forEach(r=>{
-      r.addEventListener('click',()=>{tags=tags.filter(t=>t!==r.dataset.tag);render();});
-    });
-  };
-  render();
-  wrap._getTags=()=>[...tags];
-
-  if(quick){
-    quick.innerHTML=options.slice(0,15).map(o=>`<button type="button" class="quick-tag">${escHtml(o)}</button>`).join('');
-    quick.addEventListener('click',e=>{
-      if(e.target.classList.contains('quick-tag')){
-        const v=e.target.textContent;
-        if(!tags.includes(v)){tags.push(v);render();}
-      }
-    });
-  }
-}
-
-// ── ML Accordion ──
-function renderMlAccordion(){
-  const wrap=document.getElementById('mlAccordion');
-  if(!wrap) return;
-  wrap.innerHTML=_mlData.map((m,i)=>{
-    const label=m.sub?'🩵 서브남':'💙 남주';
-    const typeTags=(m.typeTags||[]).map(t=>`<span class="tag-chip sticker-pink" style="font-size:11px">${escHtml(t)}</span>`).join('');
-    return `<div class="ml-entry" data-idx="${i}">
-      <div class="ml-entry-header" onclick="toggleMlEntry(${i})">
-        <span>${label} — ${escHtml(m.name||'(이름 없음)')}</span>
-        <button type="button" class="ml-del" onclick="event.stopPropagation();removeMl(${i})">✕</button>
-      </div>
-      <div class="ml-entry-body ${m._open?'open':''}">
-        <div class="row2">
-          <div class="fg"><label>이름</label><input type="text" value="${escHtml(m.name||'')}" onchange="syncMl(${i},'name',this.value)"></div>
-          <div class="fg"><label>나이</label><input type="text" value="${escHtml(m.age||'')}" onchange="syncMl(${i},'age',this.value)"></div>
-        </div>
-        <div class="fg"><label><input type="checkbox" ${m.sub?'checked':''} onchange="syncMl(${i},'sub',this.checked)"> 서브남</label></div>
-        <div class="fg"><label>소개</label><textarea rows="2" onchange="syncMl(${i},'intro',this.value)">${escHtml(m.intro||'')}</textarea></div>
-        <div class="fg"><label>유형 태그</label><div class="ml-type-tags">${typeTags}</div>
-          <div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap">
-            ${RIDI_ML_TYPES.slice(0,12).map(t=>`<button type="button" class="quick-tag" onclick="addMlTypeTag(${i},'#${t}')">#${escHtml(t)}</button>`).join('')}
-          </div>
-          <input type="text" placeholder="직접 입력 후 Enter" style="margin-top:4px;width:100%" onkeydown="if(event.key==='Enter'){event.preventDefault();addMlTypeTag(${i},this.value);this.value='';}">
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function toggleMlEntry(i){_mlData[i]._open=!_mlData[i]._open;renderMlAccordion();}
-function syncMl(i,key,val){_mlData[i][key]=val;}
-function removeMl(i){_mlData.splice(i,1);renderMlAccordion();}
-function addMlEntry(){_mlData.push({name:'',age:'',intro:'',typeTags:[],sub:false,_open:true});renderMlAccordion();}
-function addMlTypeTag(i,tag){
-  tag=tag.trim();
-  if(!tag) return;
-  if(!tag.startsWith('#')) tag='#'+tag;
-  if(!_mlData[i].typeTags) _mlData[i].typeTags=[];
-  if(!_mlData[i].typeTags.includes(tag)){_mlData[i].typeTags.push(tag);renderMlAccordion();}
-}
-
-// ── Excerpts ──
-function renderExcerpts(){
-  const wrap=document.getElementById('excerptsWrap');
-  if(!wrap) return;
-  wrap.innerHTML=_excerptsData.map((e,i)=>`<div class="excerpt-entry">
-    <div class="excerpt-head">발췌 ${i+1} <button type="button" class="ml-del" onclick="removeExcerpt(${i})">✕</button></div>
-    <div class="fg"><label>위치</label><input type="text" value="${escHtml(e.location||'')}" placeholder="예: 2권 147p" onchange="syncExcerpt(${i},'location',this.value)"></div>
-    <div class="fg"><label>문장</label><textarea rows="2" placeholder="발췌 구절..." onchange="syncExcerpt(${i},'text',this.value)">${escHtml(e.text||'')}</textarea></div>
-    <div class="fg"><label>이유</label><textarea rows="1" placeholder="이 구절을 고른 이유..." onchange="syncExcerpt(${i},'reason',this.value)">${escHtml(e.reason||'')}</textarea></div>
-  </div>`).join('');
-}
-function addExcerpt(){_excerptsData.push({text:'',location:'',reason:''});renderExcerpts();}
-function removeExcerpt(i){_excerptsData.splice(i,1);renderExcerpts();}
-function syncExcerpt(i,key,val){_excerptsData[i][key]=val;}
-
-// ── Rereads ──
-function renderRereads(){
-  const wrap=document.getElementById('rereadsWrap');
-  if(!wrap) return;
-  wrap.innerHTML=_rereadsData.map((r,i)=>`<div class="reread-entry">
-    <span>제${r.nth||i+1}회독</span>
-    <input type="date" value="${escHtml(r.date||'')}" onchange="syncReread(${i},'date',this.value)">
-    <input type="text" value="${escHtml(r.note||'')}" placeholder="메모" onchange="syncReread(${i},'note',this.value)" style="flex:1">
-    <button type="button" class="ml-del" onclick="removeReread(${i})">✕</button>
-  </div>`).join('');
-}
-function addReread(){_rereadsData.push({nth:_rereadsData.length+1,date:'',note:''});renderRereads();}
-function removeReread(i){_rereadsData.splice(i,1);renderRereads();}
-function syncReread(i,key,val){_rereadsData[i][key]=val;}
-
-// ── Cover ──
-function applyCoverUrl(){
-  const url=document.getElementById('editCoverUrl').value.trim();
-  const preview=document.getElementById('coverPreview');
-  if(url){
-    preview.innerHTML=`<img src="${escHtml(url)}" alt="" onerror="this.parentElement.innerHTML='<div class=\\'cover-hint\\'><span class=\\'ci\\'>⚠️</span>로드 실패</div>'">`;
-  }else{
-    preview.innerHTML='<div class="cover-hint"><span class="ci">📷</span>표지 이미지</div>';
-  }
-}
-
-// ── Save ──
+function addExcerpt(){excerptsData.push({id:uid(),text:'',location:'',reason:'',open:true});renderExcerpts();}
+function removeExcerpt(id){excerptsData=excerptsData.filter(e=>e.id!==id);renderExcerpts();}
+function toggleExcerpt(id){const e=excerptsData.find(x=>x.id===id);if(e)e.open=!e.open;renderExcerpts();}
+function syncExcerpt(id,field,val){const e=excerptsData.find(x=>x.id===id);if(e)e[field]=val;}
+function renderExcerpts(){const wrap=document.getElementById('excerptsWrap');if(!excerptsData.length){wrap.innerHTML='';return;}wrap.innerHTML=excerptsData.map((e,idx)=>`<div class="excerpt-item"><div class="excerpt-head" onclick="toggleExcerpt('${e.id}')"><span class="exc-arrow ${e.open?'open':''}">&#9654;</span><span style="font-size:11px;color:var(--acc);font-weight:600">발췌 ${idx+1}</span><span class="exc-summary">${e.text?escHtml(e.text.slice(0,60))+'…':'(내용 없음)'}</span><button class="exc-del" onclick="event.stopPropagation();removeExcerpt('${e.id}')">✕</button></div><div class="excerpt-body ${e.open?'open':''}"><div class="fg"><label>위치</label><input type="text" value="${escHtml(e.location||'')}" placeholder="예: 2권 147p" oninput="syncExcerpt('${e.id}','location',this.value)"></div><div class="fg"><label>발췌 문장</label><textarea rows="3" placeholder="발췌할 구절..." oninput="syncExcerpt('${e.id}','text',this.value);autosizeEl(this)">${escHtml(e.text||'')}</textarea></div><div class="fg"><label>발췌 이유</label><textarea rows="2" placeholder="이 구절을 고른 이유..." oninput="syncExcerpt('${e.id}','reason',this.value);autosizeEl(this)">${escHtml(e.reason||'')}</textarea></div></div></div>`).join('');wrap.querySelectorAll('textarea').forEach(autosizeEl);}
 function saveBook(){
-  const title=document.getElementById('editTitle').value.trim();
-  if(!title){showToast('제목을 입력해주세요');return;}
-  const author=document.getElementById('editAuthor').value.trim();
-  const status=document.querySelector('#editStatusWrap .status-opt.sel-on')?.dataset.status||'읽고싶어요';
-  const rating=[...document.querySelectorAll('#editStarRow .sr-btn.on')].length;
-  const genres=[...document.querySelectorAll('.edit-genre-cb:checked')].map(c=>c.value);
-  const cover=document.getElementById('editCoverUrl').value.trim();
-  const dateStart=document.getElementById('editDateStart').value;
-  const dateEnd=document.getElementById('editDateEnd').value;
-  const datebuy=document.getElementById('editDatebuy').value;
-  const platformurl=document.getElementById('editPlatformUrl').value.trim();
-  const platform=document.getElementById('editPlatform').value.trim();
-  const price=Number(document.getElementById('editPrice').value)||0;
-  const booktype=document.getElementById('editBooktype').value;
-  const agerating=document.getElementById('editAgerating').value;
-  const summary=document.getElementById('editSummary').value.trim();
-  const review=document.getElementById('editReview').value.trim();
-  const memo=document.getElementById('editMemo').value.trim();
-  const sojaiWrap=document.getElementById('sojaiTagWrap');
-  const relWrap=document.getElementById('relTagWrap');
-  const flTypeTagWrap=document.getElementById('flTypeTagWrap');
-  const sojai=sojaiWrap?._getTags?.()||[];
-  const rel=relWrap?._getTags?.()||[];
-  const flTypeTags=flTypeTagWrap?._getTags?.()||[];
-
-  const ml=_mlData.filter(m=>m.name||m.intro||(m.typeTags&&m.typeTags.length)).map(m=>({name:m.name||'',age:m.age||'',typeTags:m.typeTags||[],intro:m.intro||'',sub:!!m.sub}));
-  const fl={name:document.getElementById('editFlName').value.trim(),age:document.getElementById('editFlAge').value.trim(),typeTags:[...flTypeTags],intro:document.getElementById('editFlIntro')?.value.trim()||''};
-  const excerpts=_excerptsData.filter(e=>e.text);
-  const rereads=_rereadsData.filter(r=>r.date||r.note);
-
-  const bookData={title,author,status,rating,genres,cover,dateStart,dateEnd,datebuy,platformurl,url:platformurl,platform,price,booktype,agerating,summary,review,memo,sojai,rel,flTypeTags,ml,fl,excerpts,rereads,updatedAt:new Date().toISOString()};
-
-  if(_editingId){
-    const idx=books.findIndex(b=>b.id===_editingId);
-    if(idx>=0) Object.assign(books[idx],bookData);
-    showToast('수정했어요');
-  }else{
-    books.push({id:generateId(),fav:false,createdAt:new Date().toISOString(),...bookData});
-    showToast('새 기록을 추가했어요');
-  }
-  saveData();
-  renderBooks();
-  updateBookCount();
-  closeModal('ov-edit');
-}
-
-document.getElementById('editSave')?.addEventListener('click',saveBook);
-
-// ══════════════ Ridi Import ══════════════
-function openRidiModal(){
-  document.getElementById('ridiUrl').value='';
-  openModal('ov-ridi');
-}
-
-async function importFromRidi(){
-  const urlInput=document.getElementById('ridiUrl');
-  const url=urlInput.value.trim();
-  if(!url||!url.includes('ridibooks.com/books/')){showToast('올바른 리디북스 URL을 입력해주세요');return;}
-  const btn=document.getElementById('ridiSubmit');
-  btn.textContent='불러오는 중...';
-  btn.disabled=true;
   try{
-    const res=await fetch(RIDI_PROXY_URL+'?url='+encodeURIComponent(url));
-    if(!res.ok) throw new Error('Fetch failed: '+res.status);
-    const html=await res.text();
-    const doc=new DOMParser().parseFromString(html,'text/html');
-    const getMeta=(p)=>doc.querySelector(`meta[property="${p}"]`)?.content||doc.querySelector(`meta[name="${p}"]`)?.content||'';
-    const title=getMeta('og:title')||doc.title||'';
-    const desc=getMeta('og:description')||'';
-    const cover=getMeta('og:image')||'';
-    const pageText=doc.body?.textContent||'';
-    let author='';
-    const authorEl=doc.querySelector('.author_metadata_writer a,.metadata_writer .author_detail_link');
-    if(authorEl) author=authorEl.textContent.trim();
-    else{const m=desc.match(/^([^,]+)/);if(m)author=m[1].trim();}
-
-    const genres=RIDI_GENRES.filter(g=>pageText.includes(g));
-    const sojai=RIDI_SOJAI.filter(t=>pageText.includes(t));
-    const rel=RIDI_REL.filter(t=>pageText.includes(t));
-
-    closeModal('ov-ridi');
-    openEditModal({
-      genres,sojai,rel,
-      title:title.replace(/\s*-\s*리디$/,''),author,cover,
-      status:'읽고싶어요',rating:0,fav:false,
-      summary:desc.replace(/\s*\.\.\.\s*$/,'').trim(),
-      review:'',memo:'',ml:[],fl:{},excerpts:[],rereads:[],flTypeTags:[],
-      dateStart:'',dateEnd:'',datebuy:new Date().toISOString().slice(0,10),
-      platformurl:url,url,platform:'리디',price:0,booktype:'',agerating:''
-    });
-    showToast('리디북스에서 불러왔어요');
+    const title=document.getElementById('f-title').value.trim();if(!title){showToast('제목을 입력해주세요.');return;}
+    const genreArr=currentGenreTags.map(t=>t.trim()).filter(Boolean);
+    const clean=excerptsData.filter(e=>e.text.trim()).map(({id,text,location,reason})=>({id,text:text.trim(),location:location.trim(),reason:reason.trim()}));
+    const bookData={id:editId||uid(),title,author:document.getElementById('f-author').value.trim(),genre:genreArr,booktype:document.getElementById('f-booktype').value,agerating:document.getElementById('f-agerating').value,platform:document.getElementById('f-platform').value.trim(),platformurl:document.getElementById('f-platformurl')?.value.trim()||'',rereads:rereadData.map(r=>({...r})),price:Number(document.getElementById('f-price').value)||0,status:currentStatusVal,sojaiTags:[...currentCtagsSojai],relTags:[...currentCtagsRel],flTypeTags:[...currentFlTypeTags],moods:[...currentMoods],rating:currentStar,summary:document.getElementById('f-summary').value.trim(),review:document.getElementById('f-review').value.trim(),memo:document.getElementById('f-memo')?.value.trim()||'',excerpts:clean,cover:currentCover,ml:mlData.filter(m=>m.name||m.age||(m.typeTags&&m.typeTags.length)||m.intro).map(m=>({name:m.name||'',age:m.age||'',typeTags:m.typeTags||[],intro:m.intro||'',sub:!!m.sub})),fl:{name:document.getElementById('f-fl-name').value.trim(),age:document.getElementById('f-fl-age').value.trim(),typeTags:[...currentFlTypeTags],intro:document.getElementById('f-fl-intro')?.value.trim()||''},datebuy:document.getElementById('f-datebuy').value,datestart:document.getElementById('f-datestart').value,dateend:document.getElementById('f-dateend').value,updatedAt:new Date().toISOString()};
+    if(editId){const idx=books.findIndex(b=>b.id===editId);if(idx===-1){showToast('저장할 책을 찾을 수 없어요.');return;}bookData.createdAt=books[idx].createdAt||bookData.updatedAt;bookData.fav=books[idx].fav||false;books[idx]=bookData;}else{bookData.createdAt=bookData.updatedAt;books.unshift(bookData);}
+    saveData().then(()=>{render();closeEdit();showToast(editId?'수정되었어요!':'책이 추가되었어요!');}).catch(e=>{console.error('saveBook catch:',e);showToast('저장 중 오류가 발생했어요: '+e.message);});
   }catch(e){
-    console.error('Ridi import error:',e);
-    showToast('불러오기 실패: '+e.message);
-  }finally{
-    btn.textContent='불러오기';
-    btn.disabled=false;
+    console.error('saveBook error:',e);
+    showToast('저장 중 예기치 않은 오류가 발생했어요: '+e.message);
   }
 }
+async function deleteBook(){const b=books.find(x=>x.id===editId);if(!b)return;const ok=await showConfirm('책 삭제','"'+b.title+'" 을(를) 삭제할까요? 이 작업은 되돌릴 수 없어요.','삭제');if(!ok)return;books=books.filter(x=>x.id!==editId);await saveData();render();closeEdit();showToast('삭제되었어요.');}
 
-document.getElementById('ridiSubmit')?.addEventListener('click',importFromRidi);
+// ══════════════ DETAIL MODAL ══════════════
+function getSimilarBooks(b){
+  const bG=new Set(b.genre||[]);
+  const allTags=[...(b.sojaiTags||b.tags||[]),...(b.relTags||b.themes||[])];
+  const bT=new Set(allTags);
+  const scored=books.filter(x=>x.id!==b.id).map(x=>{
+    const xG=x.genre||[];const xAllTags=[...(x.sojaiTags||x.tags||[]),...(x.relTags||x.themes||[])];
+    let score=0;xG.forEach(g=>{if(bG.has(g))score+=3;});xAllTags.forEach(t=>{if(bT.has(t))score+=1;});return{book:x,score};
+  }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).slice(0,4);
+  return scored;
+}
+function openDetail(id){
+  const b=books.find(x=>x.id===id);if(!b)return;
+  const g=getGenre((b.genre||[])[0]);
+  const statusLabels={완독:'✅ 완독',읽는중:'📖 읽는 중',읽고싶어요:'🔖 읽고 싶어요'};
+  const sbl=statusLabels[b.status]||b.status||'';
+  const ageBadge=b.agerating?`<span class="age-badge age-${b.agerating}">${b.agerating}</span>`:'';
+  const statusStyle={완독:'background:var(--green-bg);color:var(--green)',읽는중:'background:var(--amber-bg);color:var(--amber)',읽고싶어요:'background:var(--blue-bg);color:var(--blue)'}[b.status]||'background:var(--bg2);color:var(--txt3)';
+  const allTags=[...(b.sojaiTags||b.tags||[]),...(b.relTags||b.themes||[])];
+  // TOP
+  const coverHtml=b.cover?`<img src="${b.cover}" alt="" style="width:100%;height:100%;object-fit:cover;display:block">`:`<div class="det-cover-ph"><span class="ico">📖</span><span style="font-size:14px;font-weight:600;text-align:center">${escHtml(b.title)}</span></div>`;
+  const dateHtml=[b.datebuy?`<div class="det-date-item">🛒 <span>${b.datebuy}</span></div>`:'',b.datestart?`<div class="det-date-item">📖 <span>${b.datestart}</span></div>`:'',b.dateend?`<div class="det-date-item">✅ <span>${b.dateend}</span></div>`:''].filter(Boolean).join('');
+  const readDays=daysBetween(b.datestart,b.dateend);const readDaysHtml=readDays?`<span class="mchip">⏱ ${readDays}일 만에 완독</span>`:'';
+  const metaChips=[b.platform&&b.platformurl?`<a href="${escHtml(b.platformurl)}" target="_blank" rel="noopener noreferrer" class="mchip" style="color:var(--acc);text-decoration:none">${escHtml(b.platform)} 🔗</a>`:b.platform?`<span class="mchip">📱 ${escHtml(b.platform)}</span>`:'',b.price?`<span class="mchip">💰 ${fmtPrice(b.price)}</span>`:'',readDaysHtml,b.booktype?`<span class="mchip">${escHtml(b.booktype)}</span>`:'',(b.rereads&&b.rereads.length)?`<span class="mchip">🔄 ${b.rereads.length}회 재독</span>`:''].filter(Boolean).join('');
+  const moodHtml=(b.moods&&b.moods.length)?b.moods.map(m=>{const mo=MOOD_OPTIONS.find(x=>x.label===m);return mo?`<span class="mood-tag" style="background:${mo.bg};color:${mo.color};border-color:${mo.color+'40'}">${mo.emoji} ${m}</span>`:''}).join(''):'';
+  const tagHtml=allTags.map(t=>`<span class="ctag-detail ctag-click" data-tag="${encodeURIComponent(t)}" onclick="const tg=decodeURIComponent(this.dataset.tag);closeDetail();setTimeout(()=>searchByTag(tg),50)">${escHtml(t)}</span>`).join('');
+  const genreBadges=(b.genre||[]).map(gn=>{const gi=getGenre(gn);return`<span class="det-genre-badge" style="background:${hexToRgba(gi.color,.13)};color:${gi.color}">${escHtml(gi.name)}</span>`;}).join('');
+  document.getElementById('detailTop').innerHTML=`<div class="det-cover">${coverHtml}</div><div class="det-info"><div class="det-badge-row">${genreBadges}<span class="det-status-badge" style="${statusStyle}">${sbl}</span>${ageBadge}</div><div class="det-title">${escHtml(b.title)}</div><div class="det-author">${escHtml(b.author||'작가 미상')}</div>${b.rating?`<div class="det-stars">${stars(b.rating)}</div>`:''}<div class="det-meta">${metaChips}</div>${moodHtml?`<div style="display:flex;flex-wrap:wrap;gap:5px">${moodHtml}</div>`:''}<div class="det-tags">${tagHtml}</div>${dateHtml?`<div class="det-dates">${dateHtml}</div>`:''}<div class="det-actions"><button class="btn" onclick="openEdit('${b.id}');closeDetail()">✏️ 수정</button><button class="btn" onclick="openShare('${b.id}');closeDetail()">💌 추천 카드</button>${b.fav?`<button class="btn" onclick="toggleFav('${b.id}');openDetail('${b.id}')" style="color:#c8a000">⭐ 즐겨찾기</button>`:`<button class="btn" onclick="toggleFav('${b.id}');openDetail('${b.id}')">☆ 즐겨찾기</button>`}</div></div>`;
+  // CONTENT
+  let contentHtml='';
+  // 남주/여주
+  const mlArr=Array.isArray(b.ml)?b.ml:(b.ml&&b.ml.name?[b.ml]:[]);
+  const mainMl=mlArr.filter(m=>!m.sub),subMl=mlArr.filter(m=>m.sub);
+  const fl=b.fl;
+  if(mlArr.length||fl){
+    const mlCards=mainMl.map(m=>`<div class="lead-detail-card"><div class="lead-detail-label ml">💙 남주</div><div class="lead-detail-name">${escHtml(m.name||'이름 미입력')}</div>${m.age?`<div class="lead-detail-age">${escHtml(m.age)}</div>`:''}${m.typeTags&&m.typeTags.length?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">${m.typeTags.map(t=>`<span class="ctag-detail" style="font-size:11px">${escHtml(t)}</span>`).join('')}</div>`:''}${m.intro?`<p style="font-size:12px;color:var(--txt2);margin-top:8px;line-height:1.7">${escHtml(m.intro)}</p>`:''}</div>`).join('');
+    const flCard=fl&&fl.name?`<div class="lead-detail-card"><div class="lead-detail-label fl">🩷 여주</div><div class="lead-detail-name">${escHtml(fl.name)}</div>${fl.age?`<div class="lead-detail-age">${escHtml(fl.age)}</div>`:''}${fl.typeTags&&fl.typeTags.length?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">${fl.typeTags.map(t=>`<span class="ctag-detail" style="font-size:11px">${escHtml(t)}</span>`).join('')}</div>`:''}${fl.intro?`<p style="font-size:12px;color:var(--txt2);margin-top:8px;line-height:1.7">${escHtml(fl.intro)}</p>`:''}</div>`:'';
+    const subMlHtml=subMl.length?`<div class="lead-sub-section"><div class="lead-sub-title">🩵 서브남</div>${subMl.map(m=>`<div class="lead-sub-acc"><div class="lead-sub-head" onclick="this.nextElementSibling.classList.toggle('open');this.querySelector('.lead-sub-arrow').classList.toggle('open')"><span class="lead-sub-arrow">▶</span><span style="font-size:12px;font-weight:600;color:var(--acc2)">${escHtml(m.name||'이름 미입력')}</span>${m.age?`<span style="font-size:11px;color:var(--txt4);">${escHtml(m.age)}</span>`:''}</div><div class="lead-sub-body">${m.typeTags&&m.typeTags.length?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">${m.typeTags.map(t=>`<span class="ctag-detail" style="font-size:11px">${escHtml(t)}</span>`).join('')}</div>`:''}${m.intro?`<p style="font-size:12px;color:var(--txt2);line-height:1.7">${escHtml(m.intro)}</p>`:''}</div></div>`).join('')}</div>`:'';
+    contentHtml+=`<div class="det-section"><h3>주인공 정보</h3><div class="lead-detail-grid">${mlCards}${flCard}</div>${subMlHtml}</div>`;
+  }
+  // 줄거리/총평 (주인공 다음)
+  if(b.summary)contentHtml+=`<div class="det-section"><h3>줄거리</h3><p style="white-space:pre-wrap">${escHtml(b.summary)}</p></div>`;
+  if(b.review)contentHtml+=`<div class="det-section"><h3>총평</h3><p style="white-space:pre-wrap">${escHtml(b.review)}</p></div>`;
+  if(b.memo)contentHtml+=`<div class="det-section"><h3>📝 메모 <span style="font-size:10px;color:var(--txt4);font-weight:400">(비공개)</span></h3><p style="white-space:pre-wrap;background:var(--amber-bg);border:1px solid rgba(176,106,0,.15);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--txt2);line-height:1.8">${escHtml(b.memo)}</p></div>`;
+  // 발췌
+  if(b.excerpts&&b.excerpts.length){const excHtml=b.excerpts.map((e,i)=>`<div class="exc-quote-block"><div class="exc-quote-head" onclick="this.nextElementSibling.classList.toggle('open')"><span class="exc-q-label">발췌 ${i+1}</span><span class="exc-q-preview">${escHtml(e.text.slice(0,50))}${e.text.length>50?'…':''}</span></div><div class="exc-quote-body"><div class="exc-q-loc">${e.location?'📍 '+escHtml(e.location):''}</div><div class="exc-q-text">${escHtml(e.text)}</div>${e.reason?`<div class="exc-q-reason">💭 ${escHtml(e.reason)}</div>`:''}</div></div>`).join('');contentHtml+=`<div class="det-section"><h3>발췌</h3>${excHtml}</div>`;}
+  // 재독 기록
+  if(b.rereads&&b.rereads.length){const rHtml=b.rereads.map(r=>`<div class="reread-item"><span class="reread-num">제${r.nth||1}회독</span><span style="color:var(--txt3)">${r.date||''}</span>${r.note?`<span style="font-size:12px;color:var(--txt2)">${escHtml(r.note)}</span>`:''}</div>`).join('');contentHtml+=`<div class="det-section"><h3>재독 기록</h3><div class="reread-list">${rHtml}</div></div>`;}
+  // 비슷한 책 추천
+  const similar=getSimilarBooks(b);
+  if(similar.length){
+    const sItems=similar.map(({book:sb,score})=>{const sg=getGenre((sb.genre||[])[0]);const reasonParts=[];const sharedG=(sb.genre||[]).filter(g=>(b.genre||[]).includes(g));const sharedT=[...(sb.sojaiTags||[]),(sb.relTags||[])].filter(t=>[...(b.sojaiTags||[]),...(b.relTags||[])].includes(t)).slice(0,2);if(sharedG.length)reasonParts.push(sharedG[0]+' 장르');if(sharedT.length)reasonParts.push(sharedT[0]);const coverEl=sb.cover?`<img src="${sb.cover}" class="similar-cover" alt="">`:`<div class="similar-cover-ph">📖</div>`;return`<div class="similar-item" onclick="closeDetail();setTimeout(()=>openDetail('${sb.id}'),100)">${coverEl}<div class="similar-info"><div class="similar-title">${escHtml(sb.title)}</div><div class="similar-author">${escHtml(sb.author||'')}</div>${reasonParts.length?`<div class="similar-reason">🔗 ${escHtml(reasonParts.join(', '))} 기반</div>`:''}</div></div>`;}).join('');
+    contentHtml+=`<div class="det-section"><h3>📖 비슷한 책</h3><div class="similar-list">${sItems}</div></div>`;
+  }
+  document.getElementById('detailContent').innerHTML=contentHtml||'<p style="font-size:13px;color:var(--txt4);padding:8px 0">내용이 없어요.</p>';
+  document.getElementById('detailScroll').scrollTop=0;
+  document.getElementById('detailOv').classList.add('open');
+}
+function closeDetail(){document.getElementById('detailOv').classList.remove('open');}
+
+// ══════════════ 재독 기록 ══════════════
+function addReread(){const nth=rereadData.length+1;rereadData.push({id:uid(),nth,date:new Date().toISOString().slice(0,10),note:''});renderRereadList();}
+function removeReread(id){rereadData=rereadData.filter(r=>r.id!==id);rereadData.forEach((r,i)=>{r.nth=i+1;});renderRereadList();}
+function renderRereadList(){const el=document.getElementById('rereadList');if(!el)return;el.innerHTML=rereadData.map(r=>`<div class="reread-item"><span class="reread-num">제${r.nth}회독</span><input type="date" value="${r.date||''}" style="flex:0 0 120px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 7px;font-family:var(--font-body);font-size:12px;color:var(--txt)" oninput="rereadData.find(x=>x.id==='${r.id}').date=this.value"><input type="text" value="${escHtml(r.note||'')}" placeholder="메모" style="flex:1;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 7px;font-family:var(--font-body);font-size:12px;color:var(--txt)" oninput="rereadData.find(x=>x.id==='${r.id}').note=this.value"><button class="reread-del" onclick="removeReread('${r.id}')">✕</button></div>`).join('');}
