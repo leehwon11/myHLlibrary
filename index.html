@@ -1,99 +1,87 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>나의 서재</title>
-  <meta name="description" content="나만의 로맨스 독서 다이어리">
-  <meta name="theme-color" content="#f7f6f4">
-  <link rel="manifest" href="manifest.json">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
-  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Serif+KR:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>나의 서재</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;600&family=Noto+Sans+KR:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-
 <header>
-  <div class="logo" onclick="openLibName()">
+  <div class="logo" id="logoEl" onclick="openLibName()" title="서재 이름 변경">
     <span id="logoEmoji">📚</span>
-    <span id="logoName"><em>나의 서재</em></span>
+    <span id="logoName">나의 <em>서재</em></span>
   </div>
   <div class="header-spacer"></div>
-  <span class="book-chip" id="bookChip">0권의 이야기</span>
-  <div class="header-icons">
-    <button class="theme-btn" id="darkBtn" onclick="toggleDark()" title="다크 모드">🌙</button>
+  <div class="book-chip" id="bookChip">0권</div>
+  <div class="header-icons" id="headerIcons">
+    <button class="random-btn" onclick="openRandomBook()" title="오늘의 책">🎲</button>
     <button class="settings-btn" onclick="openSettings()" title="테마/폰트">⚙</button>
-    <button class="random-btn" onclick="openRandomBook()" title="랜덤 추천">🎲 랜덤</button>
-    <button class="hbtn" onclick="openJsonMenu()">📥 백업</button>
-    <button class="hbtn primary" onclick="openAdd()">+ 새 기록</button>
+    <button class="theme-btn" id="themeBtn" onclick="toggleDark()" title="다크 모드">🌙</button>
+    <button class="hbtn" onclick="openJsonMenu()">⇅</button>
+    <button class="hbtn" onclick="openHelp()" style="font-weight:700;border-radius:50%;width:34px;height:34px;padding:0;display:flex;align-items:center;justify-content:center;flex-shrink:0">?</button>
   </div>
-  <div style="position:relative;display:none" id="moreWrap">
-    <button class="hbtn" id="moreBtn" onclick="toggleMoreMenu()" style="display:none;font-size:18px;padding:7px 10px">⋯</button>
+  <div style="position:relative">
+    <button class="hbtn more-btn" id="moreBtn" onclick="toggleMoreMenu()" title="더보기" style="display:none">⋯</button>
     <div class="more-menu" id="moreMenu">
-      <button class="more-menu-item" onclick="toggleDark();closeMoreMenu()">🌙 다크 모드</button>
-      <button class="more-menu-item" onclick="openSettings();closeMoreMenu()">⚙ 테마 / 폰트</button>
-      <button class="more-menu-item" onclick="openRandomBook();closeMoreMenu()">🎲 랜덤 추천</button>
-      <button class="more-menu-item" onclick="openJsonMenu();closeMoreMenu()">📥 백업 / 불러오기</button>
-      <button class="more-menu-item" onclick="openAdd();closeMoreMenu()">+ 새 기록</button>
+      <button class="more-menu-item" onclick="closeMoreMenu();openRandomBook()">🎲 오늘의 책</button>
+      <button class="more-menu-item" onclick="closeMoreMenu();openSettings()">⚙ 테마 / 폰트</button>
+      <button class="more-menu-item" onclick="closeMoreMenu();toggleDark()">🌙 다크 모드</button>
+      <button class="more-menu-item" onclick="closeMoreMenu();openJsonMenu()">⇅ 데이터 내보내기/불러오기</button>
+      <button class="more-menu-item" onclick="closeMoreMenu();openHelp()">? 도움말</button>
     </div>
   </div>
+  <button class="hbtn primary" onclick="openAdd()">+ 추가</button>
 </header>
-
 <div class="nav-tabs">
-  <button class="nav-tab active" onclick="switchPage('library',this)">서재</button>
-  <button class="nav-tab" onclick="switchPage('stats',this)">통계</button>
-  <button class="nav-tab" onclick="switchPage('calendar',this)">캘린더</button>
+  <button class="nav-tab active" onclick="switchPage('library',this)">📚 서재</button>
+  <button class="nav-tab" onclick="switchPage('stats',this)">📊 통계</button>
+  <button class="nav-tab" onclick="switchPage('calendar',this)">📅 완독 캘린더</button>
 </div>
-
 <div class="main">
-  <!-- LIBRARY -->
-  <div id="page-library" class="page active">
+  <div class="page active" id="page-library">
     <div class="toolbar">
       <div class="toolbar-row">
-        <div class="search-wrap">
-          <span class="search-icon">🔍</span>
-          <input type="text" id="searchInput" placeholder="제목, 작가, 태그 검색…">
+        <div class="search-wrap"><span class="search-icon">🔍</span><input type="text" id="searchInput" placeholder="제목, 작가, 태그 검색" oninput="render()"></div>
+      </div>
+      <div class="toolbar-row">
+        <div id="statusPillsWrap" style="display:flex;flex-wrap:wrap;gap:6px">
+          <button class="sp sp-on" data-sv="" onclick="setStatusFilter('')">전체</button>
+          <button class="sp" data-sv="완독" onclick="setStatusFilter('완독')">✅ 완독</button>
+          <button class="sp" data-sv="읽는중" onclick="setStatusFilter('읽는중')">📖 읽는 중</button>
+          <button class="sp" data-sv="읽고싶어요" onclick="setStatusFilter('읽고싶어요')">🔖 읽고 싶어요</button>
+          <button class="fav-pill" id="favPill" onclick="toggleFavFilter()">⭐ 즐겨찾기</button>
         </div>
-        <button class="sp sp-on" data-sv="" onclick="setStatusFilter('')">전체</button>
-        <button class="sp" data-sv="완독" onclick="setStatusFilter('완독')">완독</button>
-        <button class="sp" data-sv="읽는중" onclick="setStatusFilter('읽는중')">읽는중</button>
-        <button class="sp" data-sv="읽고싶어요" onclick="setStatusFilter('읽고싶어요')">읽고싶어요</button>
-        <button class="fav-pill" id="favPill" onclick="toggleFavFilter()">⭐ 즐겨찾기</button>
-        <select class="sort-select" id="sortSelect" onchange="render()">
-          <option value="newest">최신순</option>
-          <option value="oldest">오래된순</option>
-          <option value="title">제목순</option>
-          <option value="author">작가순</option>
-          <option value="rating">별점순</option>
-          <option value="custom">사용자 지정</option>
+        <select class="sort-select" id="sortSelect" onchange="render()" style="margin-left:auto">
+          <option value="newest">최신 등록순</option>
+          <option value="oldest">오래된 순</option>
+          <option value="rating-desc">별점 높은 순</option>
+          <option value="rating-asc">별점 낮은 순</option>
+          <option value="title">제목 가나다순</option>
+          <option value="custom">사용자 지정 순서</option>
         </select>
       </div>
     </div>
     <div class="grid" id="bookGrid"></div>
   </div>
-
-  <!-- STATS -->
-  <div id="page-stats" class="page">
-    <div class="stats-tabs">
-      <button class="stats-tab active" onclick="switchStatsTab('overview',this)">📊 개요</button>
-      <button class="stats-tab" onclick="switchStatsTab('chart',this)">📈 차트</button>
-      <button class="stats-tab" onclick="switchStatsTab('tags',this)">🏷️ 태그</button>
-      <button class="stats-tab" onclick="switchStatsTab('char',this)">💙 캐릭터</button>
-      <button class="stats-tab" onclick="switchStatsTab('mood',this)">💭 감정</button>
-    </div>
-    <div id="statsContent"></div>
+  <div class="page" id="page-stats">
+  <div class="stats-tabs">
+    <button class="stats-tab active" onclick="switchStatsTab('overview',this)">📊 개요</button>
+    <button class="stats-tab" onclick="switchStatsTab('chart',this)">📈 차트</button>
+    <button class="stats-tab" onclick="switchStatsTab('tags',this)">🏷 태그</button>
+    <button class="stats-tab" onclick="switchStatsTab('char',this)">💙 캐릭터</button>
+    <button class="stats-tab" onclick="switchStatsTab('mood',this)">💭 감정</button>
   </div>
-
-  <!-- CALENDAR -->
-  <div id="page-calendar" class="page">
+  <div id="statsContent"></div>
+</div>
+  <div class="page" id="page-calendar">
     <div class="cal-nav">
       <button class="cal-nav-btn" onclick="calPrevMonth()">◀</button>
-      <span class="cal-nav-title" id="calNavTitle"></span>
+      <div class="cal-nav-title" id="calNavTitle"></div>
       <button class="cal-nav-btn" onclick="calNextMonth()">▶</button>
-      <button class="cal-nav-btn" onclick="calGoToday()" style="font-size:12px;padding:5px 10px">오늘</button>
+      <button class="cal-nav-btn" onclick="calGoToday()" style="font-size:12px">오늘</button>
     </div>
     <div class="cal-wrap">
       <div class="cal-month-wrap">
@@ -101,218 +89,362 @@
         <div class="cal-days" id="calDays"></div>
       </div>
       <div class="cal-sidebar">
-        <div class="goal-card">
+        <div class="goal-card" id="goalCard">
           <div class="goal-header">
-            <span class="goal-title">📚 독서 목표</span>
+            <span class="goal-title">📋 올해 독서 목표</span>
             <button class="goal-edit-btn" id="goalEditBtn" onclick="toggleGoalEdit()">수정</button>
           </div>
-          <div class="goal-numbers">
-            <span class="goal-done" id="goalDoneNum">0</span>
-            <span class="goal-sep">/</span>
-            <span class="goal-target" id="goalTargetNum">—</span>
-            <span class="goal-unit">권</span>
+          <div id="goalDisplay">
+            <div class="goal-numbers"><span class="goal-done" id="goalDoneNum">0</span><span class="goal-sep">/</span><span class="goal-target" id="goalTargetNum">—</span><span class="goal-unit">권</span></div>
+            <div class="goal-track"><div class="goal-bar" id="goalBar" style="width:0%"></div></div>
+            <div class="goal-pct" id="goalPct"></div><div class="goal-msg" id="goalMsg"></div>
           </div>
-          <div class="goal-track"><div class="goal-bar" id="goalBar" style="width:0%"></div></div>
-          <div class="goal-pct" id="goalPct">목표를 설정해보세요!</div>
-          <div class="goal-msg" id="goalMsg"></div>
           <div id="goalEditRow" style="display:none">
+            <p style="font-size:12px;color:var(--txt3);margin-bottom:6px">올해 읽을 목표 권수를 입력하세요</p>
             <div class="goal-set-wrap">
-              <input type="number" class="goal-set-input" id="goalInput" min="1" max="999" placeholder="목표 권수">
+              <input type="number" class="goal-set-input" id="goalInput" min="1" max="999" placeholder="예: 50">
               <button class="btn sm primary" onclick="saveGoal()">저장</button>
-              <button class="btn sm danger" onclick="clearGoal()">초기화</button>
+              <button class="btn sm" onclick="clearGoal()">삭제</button>
             </div>
           </div>
         </div>
         <div>
-          <div class="cal-sidebar-title">📖 이 달의 완독</div>
+          <div class="cal-sidebar-title">이 달의 완독</div>
           <div class="cal-books-list" id="calBooksList"></div>
         </div>
       </div>
     </div>
-    <div class="cal-tooltip" id="calTooltip"></div>
   </div>
 </div>
+<div class="cal-tooltip" id="calTooltip"></div>
 
 <!-- EDIT MODAL -->
 <div class="ov" id="editOv" onclick="ovClick(event,'editOv',closeEdit)">
-  <div class="modal" style="max-width:840px;max-height:90vh">
-    <div class="modal-head">
-      <h2 id="editModalTitle">책 추가</h2>
-      <button class="btn-x" onclick="closeEdit()">&times;</button>
+<div class="modal" style="max-width:1000px;max-height:92vh">
+  <div class="modal-head"><h2 id="editModalTitle">책 추가</h2><button class="btn-x" onclick="closeEdit()">✕</button></div>
+  <div class="modal-body">
+    <div class="form-grid">
+      <div style="display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0;overflow:hidden;width:100%">
+        <div class="cover-box" id="coverBox">
+          <div class="cover-hint"><span class="ci">🔗</span>아래에<br>이미지 URL을 입력하세요</div>
+        </div>
+        <div class="cover-acts">
+          <button class="btn sm danger" onclick="removeCover()">삭제</button>
+        </div>
+        <div class="cover-url-row">
+          <input type="url" id="coverUrlInput" placeholder="이미지 URL">
+          <button class="cover-url-btn" onclick="applyCoverUrl()">적용</button>
+        </div>
+        <div style="width:100%;margin-top:6px">
+          <div style="font-size:10px;font-weight:600;color:var(--txt4);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">리디 자동 입력</div>
+          <div class="cover-url-row">
+            <input type="url" id="ridiUrlInput" placeholder="https://ridibooks.com/books/...">
+            <button class="cover-url-btn" onclick="fetchRidiBook()" id="ridiUrlBtn">불러오기</button>
+          </div>
+        </div>
+      </div>
+      <div class="fl-col">
+        <div class="sec-label">기본 정보</div>
+        <div class="fg"><label>제목 *</label><input type="text" id="f-title" placeholder="책 제목"></div>
+        <div class="row2">
+          <div class="fg"><label>작가</label><input type="text" id="f-author" placeholder="저자명"></div>
+          <div class="fg"><label>장르</label>
+            <div class="ctag-wrap">
+              <div class="ctag-input-row">
+                <input type="text" id="genreInput" placeholder="로판, 현판 ..." onkeydown="if(event.key==='Enter'){event.preventDefault();addGenreTag();}">
+                <button class="ctag-add-btn" onclick="addGenreTag()">+</button>
+              </div>
+              <div class="quick-tags" id="quickTagsGenre"></div>
+              <div class="selected-tags" id="selectedGenreTags"></div>
+            </div>
+          </div>
+        </div>
+        <div class="row2">
+          <div class="fg"><label>책 종류</label>
+            <select id="f-booktype"><option value="">미선택</option><option value="단행본">단행본</option><option value="웹소설">웹소설</option><option value="전자책">전자책</option><option value="기타">기타</option></select>
+          </div>
+          <div class="fg"><label>이용가</label>
+            <select id="f-agerating"><option value="">미선택</option><option value="전체">전체</option><option value="15세">15세</option><option value="19세">19세 🔞</option></select>
+          </div>
+        </div>
+        <div class="row3">
+          <div class="fg"><label>구매 플랫폼</label><input type="text" id="f-platform" placeholder="리디, 카카오 ..."></div>
+          <div class="fg"><label>작품 URL</label><input type="url" id="f-platformurl" placeholder="https://..."></div>
+          <div class="fg"><label>금액 (원)</label><input type="number" id="f-price" placeholder="0" min="0"></div>
+        </div>
+        <div class="fg"><label>소재 태그</label>
+          <div class="ctag-wrap">
+            <div class="ctag-input-row"><input type="text" id="ctagInputSojai" placeholder="#계약결혼, #환생 ..." oninput="showTagAC(this,addCtagFromInputSojai,'sojai')" onkeydown="if(event.key==='Enter'){event.preventDefault();addCtagFromInputSojai();hideTagAC();}" onblur="setTimeout(hideTagAC,150)"><button class="ctag-add-btn" onclick="addCtagFromInputSojai()">+</button></div>
+            <div class="quick-tags" id="quickTagsSojai"></div>
+            <div class="selected-tags" id="selectedTagsSojai"></div>
+          </div>
+        </div>
+        <div class="fg"><label>관계 태그</label>
+          <div class="ctag-wrap">
+            <div class="ctag-input-row"><input type="text" id="ctagInputRel" placeholder="#소꿉친구, #집착남 ..." oninput="showTagAC(this,addCtagFromInputRel,'rel')" onkeydown="if(event.key==='Enter'){event.preventDefault();addCtagFromInputRel();hideTagAC();}" onblur="setTimeout(hideTagAC,150)"><button class="ctag-add-btn" onclick="addCtagFromInputRel()">+</button></div>
+            <div class="quick-tags" id="quickTagsRel"></div>
+            <div class="selected-tags" id="selectedTagsRel"></div>
+          </div>
+        </div>
+        <div class="fg"><label>감정 태그</label><div class="mood-selector" id="moodSelector"></div></div>
+        <div class="fg"><label>남주 정보</label>
+          <div class="ml-acc-wrap" id="mlAccWrap"></div>
+          <button class="add-ml-btn" onclick="addMlEntry()">💙 남주 추가</button>
+        </div>
+        <div class="fg"><label>여주 정보</label>
+          <div style="background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:8px">
+            <div style="font-size:11px;font-weight:700;color:var(--rose);text-transform:uppercase;letter-spacing:.06em">🩷 여주</div>
+            <div class="row2">
+              <div class="fg"><label>이름</label><input type="text" id="f-fl-name"></div>
+              <div class="fg"><label>나이</label><input type="text" id="f-fl-age"></div>
+            </div>
+            <div class="fg"><label>유형 태그</label>
+              <div class="ctag-wrap">
+                <div class="ctag-input-row"><input type="text" id="ctagInputFlType" placeholder="#츤데레녀, #악녀 ..." oninput="showTagAC(this,addCtagFlType,'fl')" onkeydown="if(event.key==='Enter'){event.preventDefault();addCtagFlType();hideTagAC();}" onblur="setTimeout(hideTagAC,150)"><button class="ctag-add-btn" onclick="addCtagFlType()">+</button></div>
+                <div class="quick-tags" id="quickTagsFlType"></div>
+                <div class="selected-tags" id="selectedFlTypeTags"></div>
+              </div>
+            </div>
+            <div class="fg"><label>소개</label><textarea id="f-fl-intro" rows="2" oninput="autosizeEl(this)"></textarea></div>
+          </div>
+        </div>
+        <div class="fg"><label>독서 상태</label>
+          <div class="status-selector" id="statusSelector">
+            <button class="st-opt" data-v="읽고싶어요" onclick="setStatus('읽고싶어요')">🔖 읽고 싶어요</button>
+            <button class="st-opt" data-v="읽는중" onclick="setStatus('읽는중')">📖 읽는 중</button>
+            <button class="st-opt" data-v="완독" onclick="setStatus('완독')">✅ 완독</button>
+          </div>
+        </div>
+
+        <div class="sec-label" style="margin-top:2px">날짜</div>
+        <div class="row3">
+          <div class="fg"><label>구매일</label><input type="date" id="f-datebuy"></div>
+          <div class="fg"><label>읽기 시작</label><input type="date" id="f-datestart"></div>
+          <div class="fg"><label>완독일</label><input type="date" id="f-dateend"></div>
+        </div>
+        <div class="sec-label" style="margin-top:2px">후기</div>
+        <div class="fg"><label>별점</label>
+          <div class="star-row" id="starRow">
+            <span class="star-label" id="starLabel"></span>
+          </div>
+        </div>
+        <div class="fg"><label>줄거리</label><textarea id="f-summary" placeholder="간략한 줄거리..." rows="3" oninput="autosizeEl(this)"></textarea></div>
+        <div class="fg"><label>총평</label><textarea id="f-review" placeholder="읽고 난 감상..." rows="3" oninput="autosizeEl(this)"></textarea></div>
+        <div class="fg"><label>메모 <span style="font-size:10px;color:var(--txt4);font-weight:400">(스포일러, 개인 메모 등)</span></label><textarea id="f-memo" placeholder="스포일러나 개인 메모..." rows="2" oninput="autosizeEl(this)"></textarea></div>
+        <div class="sec-label" style="margin-top:2px">재독 기록</div>
+        <div class="reread-list" id="rereadList"></div>
+        <button class="add-reread-btn" onclick="addReread()">＋ 회독 추가</button>
+        <div class="sec-label" style="margin-top:2px">발췌</div>
+        <div class="excerpts-wrap" id="excerptsWrap"></div>
+        <button class="add-excerpt-btn" onclick="addExcerpt()">＋ 발췌 추가</button>
+      </div>
     </div>
-    <div class="modal-body" id="editModalBody"></div>
-    <div class="modal-foot">
-      <button class="btn danger sm" id="delBtn" style="display:none" onclick="deleteBook()">삭제</button>
-      <div style="flex:1"></div>
+  </div>
+  <div class="modal-foot">
+    <button class="btn danger" id="delBtn" onclick="deleteBook()" style="display:none">삭제</button>
+    <div class="ml-auto" style="display:flex;gap:8px">
       <button class="btn" onclick="closeEdit()">취소</button>
       <button class="btn primary" onclick="saveBook()">저장</button>
     </div>
   </div>
 </div>
+</div>
 
 <!-- DETAIL MODAL -->
 <div class="ov" id="detailOv" onclick="ovClick(event,'detailOv',closeDetail)">
-  <div class="modal detail-modal">
-    <div class="modal-head">
-      <h2>기록 상세</h2>
-      <button class="btn-x" onclick="closeDetail()">&times;</button>
-    </div>
-    <div class="detail-scroll" id="detailScroll">
-      <div class="detail-top" id="detailTop"></div>
-      <div class="det-content" id="detailContent"></div>
-    </div>
+<div class="modal detail-modal" style="position:relative">
+  <button class="btn-x" style="position:absolute;top:10px;right:10px;z-index:5" onclick="closeDetail()">✕</button>
+  <div class="detail-scroll" id="detailScroll">
+    <div class="detail-top" id="detailTop"></div>
+    <div class="det-content" id="detailContent"></div>
   </div>
 </div>
+</div>
 
-<!-- JSON MODAL -->
+<!-- JSON MENU -->
 <div class="ov" id="jsonOv" onclick="ovClick(event,'jsonOv',closeJsonMenu)">
-  <div class="modal" style="max-width:420px">
-    <div class="modal-head">
-      <h2>데이터 백업</h2>
-      <button class="btn-x" onclick="closeJsonMenu()">&times;</button>
+<div class="modal" style="max-width:340px">
+  <div class="modal-head"><h2>JSON 내보내기 / 불러오기</h2><button class="btn-x" onclick="closeJsonMenu()">✕</button></div>
+  <div class="modal-body" style="display:flex;flex-direction:column;gap:12px">
+    <div style="display:flex;flex-direction:column;gap:5px">
+      <button class="btn" onclick="exportJSON()">⬇ 데이터 내보내기</button>
+      <p style="font-size:11px;color:var(--txt4)">현재 서재 전체를 JSON 파일로 저장합니다.</p>
     </div>
-    <div class="modal-body">
-      <p style="font-size:13px;color:var(--txt2);margin-bottom:16px">JSON 파일로 내보내거나 불러올 수 있어요.</p>
-      <div style="display:flex;flex-direction:column;gap:12px">
-        <button class="btn primary" onclick="exportJSON()" style="width:100%">📤 내보내기 (다운로드)</button>
-        <div class="fg">
-          <label>가져오기</label>
-          <input type="file" id="importFile" accept=".json" onchange="importJSON(event)">
-        </div>
-      </div>
-      <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--line)">
-        <div class="sec-label" style="margin-bottom:8px">리디북스 자동 입력</div>
-        <div class="cover-url-row">
-          <input type="url" id="ridiUrlInput" placeholder="https://ridibooks.com/books/..." style="flex:1">
-          <button class="cover-url-btn" id="ridiUrlBtn" onclick="fetchRidiBook()">불러오기</button>
-        </div>
-        <p style="font-size:11px;color:var(--txt4);margin-top:6px">리디북스 책 페이지 URL을 붙여넣으면 제목, 저자, 표지, 장르, 소재/관계 태그가 자동 입력돼요.</p>
-      </div>
+    <hr style="border:none;border-top:1px solid var(--line)">
+    <div style="display:flex;flex-direction:column;gap:5px">
+      <button class="btn" onclick="document.getElementById('jsonFileInput').click()">⬆ 데이터 불러오기</button>
+      <input type="file" id="jsonFileInput" accept=".json" style="display:none" onchange="importJSON(event)">
+      <p style="font-size:11px;color:var(--txt4)">⚠️ 불러오기 시 현재 데이터가 덮어써집니다.</p>
     </div>
   </div>
+  <div class="modal-foot"><div class="ml-auto"><button class="btn" onclick="closeJsonMenu()">닫기</button></div></div>
+</div>
 </div>
 
 <!-- SHARE CARD MODAL -->
 <div class="ov" id="shareOv" onclick="ovClick(event,'shareOv',closeShare)">
-  <div class="modal" style="max-width:500px;max-height:90vh">
-    <div class="modal-head">
-      <h2>💌 추천 카드</h2>
-      <button class="btn-x" onclick="closeShare()">&times;</button>
-    </div>
-    <div class="modal-body">
-      <div class="share-canvas-wrap"><canvas id="shareCanvas" width="720" height="960"></canvas></div>
-      <div class="fg"><label>한 줄 메시지</label><input type="text" id="shareMsg" placeholder="이 책을 추천하는 이유…" oninput="drawCard(currentShareId)"></div>
-      <div style="display:flex;gap:8px;margin-top:10px;justify-content:center">
-        <button class="btn sm" id="thm-cream" onclick="setShareTheme('cream')" style="font-weight:700">크림</button>
+<div class="modal" style="max-width:460px">
+  <div class="modal-head"><h2>💌 추천 카드 만들기</h2><button class="btn-x" onclick="closeShare()">✕</button></div>
+  <div class="modal-body">
+    <div class="share-canvas-wrap"><canvas id="shareCanvas" width="720" height="960" style="width:360px;height:480px"></canvas></div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="fg"><label>한 줄 추천 멘트</label><input type="text" id="shareMsg" placeholder="이 책 진짜 강추..." oninput="drawCard(currentShareId)" maxlength="40"></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--txt3);font-weight:600;text-transform:uppercase;letter-spacing:.06em">배경</span>
+        <button class="btn sm" id="thm-cream" onclick="setShareTheme('cream')">크림</button>
         <button class="btn sm" id="thm-navy" onclick="setShareTheme('navy')">네이비</button>
         <button class="btn sm" id="thm-rose" onclick="setShareTheme('rose')">로즈</button>
         <button class="btn sm" id="thm-dark" onclick="setShareTheme('dark')">다크</button>
       </div>
     </div>
-    <div class="modal-foot">
-      <div style="flex:1"></div>
-      <button class="btn" onclick="closeShare()">닫기</button>
-      <button class="btn primary" onclick="downloadCard()">💾 이미지 저장</button>
-    </div>
   </div>
+  <div class="modal-foot"><div class="ml-auto" style="display:flex;gap:8px"><button class="btn" onclick="closeShare()">닫기</button><button class="btn primary" onclick="downloadCard()">⬇ 이미지 저장</button></div></div>
+</div>
 </div>
 
 <!-- SETTINGS MODAL -->
 <div class="ov" id="settingsOv" onclick="ovClick(event,'settingsOv',closeSettings)">
-  <div class="modal" style="max-width:520px;max-height:90vh">
-    <div class="modal-head">
-      <h2>⚙ 테마 / 폰트</h2>
-      <button class="btn-x" onclick="closeSettings()">&times;</button>
-    </div>
-    <div class="modal-body">
-      <div class="sec-label">배경 테마</div>
-      <div class="theme-grid" id="themeGrid"></div>
-      <div class="sec-label" style="margin-top:20px">본문 폰트</div>
+<div class="modal" style="max-width:500px;max-height:85vh">
+  <div class="modal-head"><h2>⚙ 테마 / 폰트 설정</h2><button class="btn-x" onclick="closeSettings()">✕</button></div>
+  <div class="modal-body" style="display:flex;flex-direction:column;gap:20px">
+    <div><div class="sec-label">배경 테마</div><div class="theme-grid" id="themeGrid"></div></div>
+    <div>
+      <div class="sec-label">폰트</div>
       <div class="font-list" id="fontList"></div>
-      <div style="margin-top:12px">
-        <label class="font-upload-area">
-          <div style="font-size:20px;opacity:.4">📁</div>
-          <p>커스텀 폰트 업로드 (.ttf, .otf, .woff, .woff2)</p>
-          <input type="file" accept=".ttf,.otf,.woff,.woff2" multiple onchange="handleFontUpload(event)" style="display:none">
-        </label>
+      <div style="margin-top:10px">
+        <div class="font-upload-area" onclick="document.getElementById('fontFileInput').click()">
+          <div style="font-size:22px;opacity:.4">🔤</div>
+          <p>ttf / otf 파일을 클릭해서 업로드<br>업로드한 폰트는 브라우저에 저장돼요</p>
+        </div>
+        <input type="file" id="fontFileInput" accept=".ttf,.otf,.woff,.woff2" multiple style="display:none" onchange="handleFontUpload(event)">
       </div>
     </div>
   </div>
+  <div class="modal-foot"><div class="ml-auto"><button class="btn primary" onclick="closeSettings()">완료</button></div></div>
+</div>
 </div>
 
 <!-- HELP MODAL -->
 <div class="ov" id="helpOv" onclick="ovClick(event,'helpOv',closeHelp)">
-  <div class="modal" style="max-width:560px;max-height:85vh">
-    <div class="modal-head">
-      <h2>📖 도움말</h2>
-      <button class="btn-x" onclick="closeHelp()">&times;</button>
+<div class="modal" style="max-width:640px;max-height:88vh">
+  <div class="modal-head"><h2>📖 나의 서재 — 도움말</h2><button class="btn-x" onclick="closeHelp()">✕</button></div>
+  <div class="modal-body" style="display:flex;flex-direction:column;gap:24px">
+    <div style="background:var(--acc-bg);border:1px solid rgba(44,82,130,.15);border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:20px">✨</span>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--acc)">현재 버전 v1.8</div>
+        <div style="font-size:12px;color:var(--txt3)">HL 전용 독서 기록 앱</div>
+        <div style="font-size:12px;color:var(--txt3)">모든 건의 및 문의 사항은 트위터 @HLismy1ife 바이오 링크 익명 질문함으로 주세요!</div>
+        <div style="font-size:12px;font-weight:700;color:#b04040;background:#fdf0f0;border:1px solid rgba(176,64,64,.2);border-radius:5px;padding:4px 8px;margin-top:2px">⚠️ HL 외 BL&GL 장르로 사용하지 마세요.</div>
+      </div>
     </div>
-    <div class="modal-body" id="helpContent"></div>
+    <div>
+      <div class="help-section-title">🆕 업데이트 내역</div>
+      <div class="help-log-acc">
+        <div class="hla-item">
+          <div class="hla-head" onclick="toggleHla(this)">
+            <span class="help-log-ver">v1.8</span>
+            <span class="hla-summary">버그수정 + 장르 색상 수정 + 히트맵 연동 + JSON 병합 + 자동 높이 입력칸</span>
+            <span class="hla-arrow">▶</span>
+          </div>
+          <div class="hla-body">
+            <ul class="hla-list">
+              <li>버그: 장르 관리 버튼이 어디서도 눌리지 않던 문제 수정 (헤더에 버튼 추가)</li>
+              <li>버그: 상세보기 태그 클릭 시 태그에 따옴표가 있으면 화면이 깨지던 문제 수정</li>
+              <li>버그: 작품 URL에 따옴표가 있으면 링크가 깨지던 문제 수정 (이스케이프 처리)</li>
+              <li>버그: 추천 카드에서 URL로 넣은 표지가 아예 안 보이던 문제 수정 (CORS 설정 원인)</li>
+              <li>UX: 삭제 확인창을 브라우저 기본 alert 대신 앱 스타일 모달로 교체 (책 삭제·장르 삭제)</li>
+              <li>UX: 모바일 헤더 아이콘 과밀 해소 — 600px 이하에서 "⋯" 더보기 메뉴로 정리</li>
+              <li>UX: 연간 완독 히트맵에서 날짜 클릭 시 완독 캘린더의 해당 월/책 상세로 바로 이동</li>
+              <li>UX: JSON 불러오기에 "병합" / "덮어쓰기" 선택 추가 (기존엔 무조건 덮어쓰기)</li>
+              <li>UX: 장르 관리에서 기본 장르 포함 모든 장르의 색상을 직접 수정 가능</li>
+              <li>UX: 줄거리·총평·메모·남주/여주 소개·발췌 입력칸이 수동 리사이즈 대신 내용에 맞춰 자동으로 늘어남</li>
+              <li>UX: 독서 상태를 "읽는 중"으로 바꾸면 읽기 시작일도 오늘 날짜로 자동 입력 (완독과 동일한 방식)</li>
+              <li>변경: "플랫폼 URL" 라벨을 "작품 URL"로 변경</li>
+              <li>변경: "감정 태그 (독후감 무드)" 라벨에서 괄호 설명 삭제</li>
+              <li>삭제: 실제로 구현되지 않았던 "읽는 중 진행률 게이지" 안내 문구 제거</li>
+            </ul>
+          </div>
+        </div>
+        <div class="hla-item">
+          <div class="hla-head" onclick="toggleHla(this)">
+            <span class="help-log-ver">v1.7</span>
+            <span class="hla-summary">버그수정 + UX개선 + 히트맵 + 감정태그 + 비슷한 책</span>
+            <span class="hla-arrow">▶</span>
+          </div>
+          <div class="hla-body">
+            <ul class="hla-list">
+              <li>버그: genre 항상 배열로 통일 (문자열/배열 혼재 완전 제거)</li>
+              <li>버그: 완독 상태 전환 시 완독일 자동 오늘 날짜 제안</li>
+              <li>버그: 장르 삭제 시 books의 genre name 기준으로 정확히 교체</li>
+              <li>버그: ctx.roundRect 구형 브라우저 폴리필 (arc+lineTo 방식)</li>
+              <li>UX: 검색 결과 하이라이팅 (제목·저자 노란색 강조)</li>
+              <li>UX: 필터/정렬/검색어 sessionStorage 유지 (새로고침 후 복원)</li>
+              <li>UX: 모바일 bottom-sheet 모달 (600px 이하 슬라이드업)</li>
+              <li>UX: 카드 드래그로 순서 변경 + 사용자 지정 순서 정렬 옵션</li>
+              <li>UX: 표지 이미지 URL 직접 입력 지원</li>
+              <li>신규: 연간 완독 히트맵 (통계 탭 — GitHub 잔디 스타일)</li>
+              <li>신규: 감정 태그 8종 (독후감 무드 선택 + 통계 분포)</li>
+              <li>신규: 비슷한 책 추천 (장르·태그 기반 스코어링, 상세보기 하단)</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
+  <div class="modal-foot">
+    <span style="font-size:11px;color:var(--txt4)">데이터는 IndexedDB에 자동 저장돼요.</span>
+    <div class="ml-auto"><button class="btn primary" onclick="closeHelp()">확인</button></div>
+  </div>
+</div>
 </div>
 
 <!-- LIB NAME MODAL -->
 <div class="ov" id="libNameOv" onclick="ovClick(event,'libNameOv',closeLibName)">
-  <div class="modal" style="max-width:420px">
-    <div class="modal-head">
-      <h2>서재 이름 변경</h2>
-      <button class="btn-x" onclick="closeLibName()">&times;</button>
-    </div>
-    <div class="modal-body">
-      <div class="fg" style="margin-bottom:12px">
-        <label>서재 이름</label>
-        <input type="text" id="libNameInput" placeholder="나의 서재">
-      </div>
-      <div class="fg" style="margin-bottom:14px">
-        <label>이모지</label>
-        <div id="emojiGrid" style="display:flex;flex-wrap:wrap;gap:4px"></div>
-      </div>
-      <div style="text-align:center;padding:12px 0;border:1px solid var(--line);border-radius:8px;background:var(--bg)">
-        <span id="libNamePreviewEmoji" style="font-size:28px">📚</span>
-        <span id="libNamePreviewText" style="font-family:var(--font-display);font-size:20px;margin-left:8px">나의 서재</span>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <div style="flex:1"></div>
-      <button class="btn" onclick="closeLibName()">취소</button>
-      <button class="btn primary" onclick="saveLibName()">저장</button>
-    </div>
-  </div>
-</div>
-
-<!-- CONFIRM MODAL -->
-<div class="ov" id="confirmOv">
-  <div class="modal" style="max-width:400px">
-    <div class="modal-body" style="text-align:center;padding:28px 24px">
-      <h3 id="confirmTitle" style="font-family:var(--font-display);font-size:17px;margin-bottom:8px">확인</h3>
-      <p id="confirmMsg" style="font-size:13px;color:var(--txt2);margin-bottom:20px;line-height:1.6"></p>
-      <div style="display:flex;gap:10px;justify-content:center">
-        <button class="btn" onclick="confirmCancel()">취소</button>
-        <button class="btn primary" id="confirmOkBtn" onclick="confirmOk()">확인</button>
+<div class="modal" style="max-width:480px">
+  <div class="modal-head"><h2>서재 이름 변경</h2><button class="btn-x" onclick="closeLibName()">✕</button></div>
+  <div class="modal-body" style="display:flex;flex-direction:column;gap:16px">
+    <div class="fg"><label>이모지</label><div id="emojiGrid" style="display:flex;flex-wrap:wrap;gap:8px;max-height:180px;overflow-y:auto;padding:4px"></div></div>
+    <div class="fg"><label>서재 이름</label><input type="text" id="libNameInput" placeholder="나의 서재" maxlength="20" oninput="updateLibPreview()"></div>
+    <div class="fg"><label>미리보기</label>
+      <div style="display:flex;align-items:center;gap:8px;font-family:var(--font-display);font-size:20px;padding:10px;background:var(--bg);border-radius:8px">
+        <span id="libNamePreviewEmoji">📚</span><span id="libNamePreviewText">나의 서재</span>
       </div>
     </div>
   </div>
+  <div class="modal-foot"><div class="ml-auto" style="display:flex;gap:8px"><button class="btn" onclick="closeLibName()">취소</button><button class="btn primary" onclick="saveLibName()">저장</button></div></div>
+</div>
 </div>
 
-<!-- IMPORT CHOICE MODAL -->
-<div class="ov" id="importChoiceOv">
-  <div class="modal" style="max-width:420px">
-    <div class="modal-head">
-      <h2>가져오기 방식</h2>
-      <button class="btn-x" onclick="cancelImportChoice()">&times;</button>
-    </div>
-    <div class="modal-body" style="text-align:center">
-      <p id="importChoiceInfo" style="font-size:13px;color:var(--txt2);margin-bottom:16px"></p>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <button class="btn primary" onclick="confirmImportChoice('overwrite')">🔄 덮어쓰기 (기존 데이터 삭제)</button>
-        <button class="btn" onclick="confirmImportChoice('merge')">➕ 병합 (중복 건너뜀)</button>
-        <button class="btn" onclick="cancelImportChoice()">취소</button>
-      </div>
-    </div>
+<!-- CONFIRM MODAL (delete confirmations etc.) -->
+<div class="ov" id="confirmOv" onclick="ovClick(event,'confirmOv',confirmCancel)">
+<div class="modal" style="max-width:380px">
+  <div class="modal-head"><h2 id="confirmTitle">확인</h2></div>
+  <div class="modal-body"><p id="confirmMsg" style="font-size:13px;color:var(--txt2);line-height:1.7"></p></div>
+  <div class="modal-foot"><div class="ml-auto" style="display:flex;gap:8px"><button class="btn" onclick="confirmCancel()">취소</button><button class="btn danger" id="confirmOkBtn" onclick="confirmOk()">삭제</button></div></div>
+</div>
+</div>
+
+<!-- JSON IMPORT CHOICE MODAL -->
+<div class="ov" id="importChoiceOv" onclick="ovClick(event,'importChoiceOv',cancelImportChoice)">
+<div class="modal" style="max-width:400px">
+  <div class="modal-head"><h2>불러오기 방식 선택</h2></div>
+  <div class="modal-body" style="display:flex;flex-direction:column;gap:10px">
+    <p style="font-size:12px;color:var(--txt3);line-height:1.7" id="importChoiceInfo"></p>
+    <button class="btn" style="text-align:left;padding:12px" onclick="confirmImportChoice('merge')">
+      <div style="font-weight:600;font-size:13px">🔀 병합하기</div>
+      <div style="font-size:11px;color:var(--txt3);margin-top:3px;font-weight:400">현재 서재는 유지하고, 겹치지 않는 책·장르만 추가해요.</div>
+    </button>
+    <button class="btn" style="text-align:left;padding:12px" onclick="confirmImportChoice('overwrite')">
+      <div style="font-weight:600;font-size:13px;color:var(--warn)">⚠️ 덮어쓰기</div>
+      <div style="font-size:11px;color:var(--txt3);margin-top:3px;font-weight:400">현재 서재 데이터를 지우고 파일 내용으로 완전히 교체해요.</div>
+    </button>
   </div>
+  <div class="modal-foot"><div class="ml-auto"><button class="btn" onclick="cancelImportChoice()">취소</button></div></div>
+</div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
+
 <script src="js/app.js"></script>
 <script src="js/library.js"></script>
 <script src="js/stats.js"></script>
