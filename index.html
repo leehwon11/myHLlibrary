@@ -377,6 +377,14 @@
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
+document.addEventListener('DOMContentLoaded',async()=>{
+  initDark();
+  initBgTheme();
+  await loadFromDB();
+  loadFilterState();
+  render();
+  updateLogo();
+});
 </script>
 </body>
 </html>
