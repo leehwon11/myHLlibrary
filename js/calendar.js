@@ -1,44 +1,159 @@
-// ══════════════ CALENDAR ══════════════
-let calYear=new Date().getFullYear(),calMonth=new Date().getMonth();
-function calPrevMonth(){calMonth--;if(calMonth<0){calMonth=11;calYear--;}renderCalendar();}
-function calNextMonth(){calMonth++;if(calMonth>11){calMonth=0;calYear++;}renderCalendar();}
-function calGoToday(){const n=new Date();calYear=n.getFullYear();calMonth=n.getMonth();renderCalendar();}
+// ══════════════ 나의 서재 — Calendar ══════════════
+
+let _calYear=new Date().getFullYear();
+let _calMonth=new Date().getMonth();
+
 function renderCalendar(){
-  const MN=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'],DOW=['일','월','화','수','목','금','토'];
-  document.getElementById('calNavTitle').textContent=calYear+'년 '+MN[calMonth];
-  const doneBooks=books.filter(b=>b.dateend&&b.status==='완독'),byDate={};
-  doneBooks.forEach(b=>{const k=b.dateend.slice(0,10);if(!byDate[k])byDate[k]=[];byDate[k].push({title:b.title,id:b.id});});
-  const today=new Date().toISOString().slice(0,10),firstDay=new Date(calYear,calMonth,1).getDay(),daysInMonth=new Date(calYear,calMonth+1,0).getDate();
-  document.getElementById('calDaysHeader').innerHTML=DOW.map(d=>`<div class="cal-day-hdr">${d}</div>`).join('');
-  let cells='';for(let i=0;i<firstDay;i++)cells+='<div class="cal-day cal-empty"></div>';
-  for(let d=1;d<=daysInMonth;d++){const dk=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;const entries=byDate[dk];const isToday=dk===today;const dow=(firstDay+d-1)%7;const dc=dow===0?' sun':dow===6?' sat':'';if(entries){const tip=entries.map(e=>e.title).join(', ').replace(/'/g,"&#39;");cells+=`<div class="cal-day has-book${dc}${isToday?' today':''}" onmouseenter="showCalTip(event,'${tip}')" onmouseleave="hideCalTip()" onclick="showCalTip(event,'${tip}')"><span>${d}</span><span class="cal-dot"></span></div>`;}else{cells+=`<div class="cal-day${dc}${isToday?' today':''}">${d}</div>`;}}
-  document.getElementById('calDays').innerHTML=cells;
-  const mk=`${calYear}-${String(calMonth+1).padStart(2,'0')}`;
-  const me=doneBooks.filter(b=>b.dateend.startsWith(mk)).sort((a,b)=>a.dateend.localeCompare(b.dateend));
-  const listEl=document.getElementById('calBooksList');
-  listEl.innerHTML=me.length?me.map(b=>`<div class="cal-book-item" onclick="openDetail('${b.id}')"><span class="cal-book-date">${b.dateend.slice(5)}</span><span class="cal-book-title">${escHtml(b.title)}</span>${b.rating?`<span style="font-size:11px;color:#e8a020">${'★'.repeat(b.rating)}</span>`:''}</div>`).join(''):'<p style="font-size:12px;color:var(--txt4)">이 달에 완독한 책이 없어요.</p>';
+  const today=new Date();
+  const todayStr=today.toISOString().slice(0,10);
+  const year=_calYear;
+  const month=_calMonth;
+  const firstDay=new Date(year,month,1).getDay();
+  const daysInMonth=new Date(year,month+1,0).getDate();
+  const monthStr=String(month+1).padStart(2,'0');
+
+  const titleEl=document.getElementById('calNavTitle');
+  if(titleEl) titleEl.textContent=year+'년 '+(month+1)+'월';
+
+  const dayHeaders=['일','월','화','수','목','금','토'];
+  const headerEl=document.getElementById('calDaysHeader');
+  if(headerEl) headerEl.innerHTML=dayHeaders.map((d,i)=>`<div class="cal-day-hdr"${i===0?' style="color:var(--warn)"':''}${i===6?' style="color:var(--acc2)"':''}>${d}</div>`).join('');
+
+  const done=books.filter(b=>b.status==='완독'&&b.dateend);
+  const monthBooks=done.filter(b=>b.dateend.startsWith(`${year}-${monthStr}`))
+    .sort((a,b)=>a.dateend.localeCompare(b.dateend));
+
+  const dayMap={};
+  monthBooks.forEach(b=>{
+    const day=parseInt(b.dateend.slice(8,10));
+    if(!dayMap[day]) dayMap[day]=[];
+    dayMap[day].push(b);
+  });
+
+  let gridHtml='';
+  for(let i=0;i<firstDay;i++) gridHtml+=`<div class="cal-day cal-empty"></div>`;
+  for(let d=1;d<=daysInMonth;d++){
+    const dateStr=`${year}-${monthStr}-${String(d).padStart(2,'0')}`;
+    const hasBook=dayMap[d];
+    const isToday=dateStr===todayStr;
+    const dow=(firstDay+d-1)%7;
+    let cls='cal-day';
+    if(hasBook) cls+=' has-book';
+    if(isToday) cls+=' today';
+    if(dow===0) cls+=' sun';
+    if(dow===6) cls+=' sat';
+    const dot=hasBook?`<span class="cal-dot"></span>`:'';
+    const onclick=hasBook?`onclick="scrollToCalBooks()"`:'';
+    gridHtml+=`<div class="${cls}" ${onclick}>${d}${dot}</div>`;
+  }
+  const daysEl=document.getElementById('calDays');
+  if(daysEl) daysEl.innerHTML=gridHtml;
+
+  let booksListHtml='';
+  if(monthBooks.length){
+    booksListHtml=monthBooks.map(b=>{
+      const day=b.dateend.slice(8,10);
+      const starsHtml=b.rating?'★'.repeat(b.rating):'';
+      return `<div class="cal-book-item" onclick="if(typeof openDetail==='function')openDetail('${b.id}')">
+        <span class="cal-book-date">${day}일</span>
+        <span class="cal-book-title">${escHtml(b.title)}</span>
+        ${starsHtml?`<span style="font-size:11px;color:#e8a020">${starsHtml}</span>`:''}
+      </div>`;
+    }).join('');
+  }else{
+    booksListHtml=`<p style="font-size:12px;color:var(--txt4);text-align:center;padding:16px 0">이 달에 완독한 책이 없어요.</p>`;
+  }
+  const booksListEl=document.getElementById('calBooksList');
+  if(booksListEl) booksListEl.innerHTML=booksListHtml;
+
+  const sidebarTitle=document.querySelector('.cal-sidebar-title');
+  if(sidebarTitle) sidebarTitle.textContent=(month+1)+'월 완독 ('+monthBooks.length+'권)';
+
   renderGoal();
 }
-function showCalTip(e,text){const tip=document.getElementById('calTooltip');tip.textContent=text;tip.style.display='block';tip.style.left=(e.clientX+12)+'px';tip.style.top=(e.clientY-36)+'px';}
-function hideCalTip(){document.getElementById('calTooltip').style.display='none';}
 
-// ══════════════ 독서 목표 ══════════════
 function renderGoal(){
-  const year=new Date().getFullYear(),target=parseInt(localStorage.getItem('myLib_goal_'+year)||'0'),done=books.filter(b=>b.status==='완독'&&b.dateend&&b.dateend.startsWith(String(year))).length;
-  document.getElementById('goalDoneNum').textContent=done;
-  if(!target){document.getElementById('goalTargetNum').textContent='—';document.getElementById('goalBar').style.width='0%';document.getElementById('goalPct').textContent='목표를 설정해보세요!';document.getElementById('goalMsg').textContent='';return;}
-  document.getElementById('goalTargetNum').textContent=target;
-  const pct=Math.min(100,Math.round(done/target*100));document.getElementById('goalBar').style.width=pct+'%';document.getElementById('goalBar').className='goal-bar'+(pct>=100?' done-all':'');document.getElementById('goalPct').textContent=pct+'% 달성';
-  document.getElementById('goalMsg').textContent=pct>=100?'🎉 목표 달성! 대단해요!':done===0?'📚 첫 번째 책을 읽어보세요!':pct>=80?'🔥 거의 다 왔어요! 파이팅!':pct>=50?'⚡ 절반을 넘었어요! 잘하고 있어요!':'';
+  const realYear=new Date().getFullYear();
+  const done=books.filter(b=>b.status==='완독'&&b.dateend);
+  const doneThisYear=done.filter(b=>b.dateend.startsWith(String(realYear)));
+  const goal=appSettings.yearlyGoal||0;
+
+  const doneNum=document.getElementById('goalDoneNum');
+  const targetNum=document.getElementById('goalTargetNum');
+  const bar=document.getElementById('goalBar');
+  const pctEl=document.getElementById('goalPct');
+  const msgEl=document.getElementById('goalMsg');
+  const inputEl=document.getElementById('goalInput');
+
+  if(doneNum) doneNum.textContent=doneThisYear.length;
+
+  if(goal){
+    if(targetNum) targetNum.textContent=goal;
+    const pct=Math.min(100,Math.round(doneThisYear.length/goal*100));
+    if(bar){bar.style.width=pct+'%';bar.className='goal-bar'+(pct>=100?' done-all':'');}
+    if(pctEl) pctEl.textContent=pct+'% 달성';
+    if(msgEl) msgEl.textContent=pct>=100?'🎉 목표 달성!':'';
+    if(inputEl) inputEl.value=goal;
+  }else{
+    if(targetNum) targetNum.textContent='—';
+    if(bar) bar.style.width='0%';
+    if(pctEl) pctEl.textContent='목표를 설정해보세요';
+    if(msgEl) msgEl.textContent='';
+  }
 }
-function toggleGoalEdit(){const row=document.getElementById('goalEditRow'),btn=document.getElementById('goalEditBtn');const isOpen=row.style.display!=='none';row.style.display=isOpen?'none':'block';btn.textContent=isOpen?'수정':'취소';if(!isOpen){const year=new Date().getFullYear();document.getElementById('goalInput').value=localStorage.getItem('myLib_goal_'+year)||'';}}
-function saveGoal(){const year=new Date().getFullYear(),v=parseInt(document.getElementById('goalInput').value);if(!v||v<1)return showToast('1 이상의 숫자를 입력해주세요.');localStorage.setItem('myLib_goal_'+year,v);document.getElementById('goalEditRow').style.display='none';document.getElementById('goalEditBtn').textContent='수정';renderGoal();showToast('목표가 저장됐어요! 화이팅! 🔥');}
-function clearGoal(){const year=new Date().getFullYear();localStorage.removeItem('myLib_goal_'+year);document.getElementById('goalEditRow').style.display='none';document.getElementById('goalEditBtn').textContent='수정';renderGoal();}
-// ══════════════ INIT ══════════════
-(async()=>{
-  initDark();initBgTheme();
-  await loadFromDB();
-  updateLogo();loadFilterState();render();
-  const n=new Date();calYear=n.getFullYear();calMonth=n.getMonth();
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'){['editOv','detailOv','jsonOv','shareOv','settingsOv','libNameOv','confirmOv','importChoiceOv'].forEach(id=>{document.getElementById(id)?.classList.remove('open');});}});
-})();
+
+function calPrevMonth(){
+  _calMonth--;
+  if(_calMonth<0){_calMonth=11;_calYear--;}
+  renderCalendar();
+}
+function calNextMonth(){
+  _calMonth++;
+  if(_calMonth>11){_calMonth=0;_calYear++;}
+  renderCalendar();
+}
+function calGoToday(){
+  const n=new Date();
+  _calYear=n.getFullYear();
+  _calMonth=n.getMonth();
+  renderCalendar();
+}
+
+function toggleGoalEdit(){
+  const row=document.getElementById('goalEditRow');
+  const display=document.getElementById('goalDisplay');
+  if(!row) return;
+  const isEditing=row.style.display!=='none';
+  row.style.display=isEditing?'none':'block';
+  if(display) display.style.display=isEditing?'block':'none';
+  if(!isEditing){
+    const inp=document.getElementById('goalInput');
+    if(inp) inp.value=appSettings.yearlyGoal||'';
+    inp?.focus();
+  }
+}
+
+function saveGoal(){
+  const inp=document.getElementById('goalInput');
+  const v=parseInt(inp?.value)||0;
+  appSettings.yearlyGoal=Math.max(0,Math.min(999,v));
+  saveData();
+  toggleGoalEdit();
+  renderGoal();
+  if(typeof renderStats==='function') renderStats();
+  showToast('목표를 저장했어요!');
+}
+
+function clearGoal(){
+  appSettings.yearlyGoal=0;
+  saveData();
+  toggleGoalEdit();
+  renderGoal();
+  if(typeof renderStats==='function') renderStats();
+  showToast('목표가 삭제됐어요.');
+}
+
+function scrollToCalBooks(){
+  const section=document.getElementById('calBooksList');
+  if(section) section.scrollIntoView({behavior:'smooth',block:'start'});
+}

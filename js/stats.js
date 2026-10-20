@@ -97,7 +97,7 @@ function buildHeatmap(){
 function goToHeatmapDate(dateStr,idsCsv){
   const ids=idsCsv?idsCsv.split(','):[];
   const [y,m]=dateStr.split('-').map(Number);
-  calYear=y;calMonth=m-1;
+  _calYear=y;_calMonth=m-1;
   switchPage('calendar',document.querySelector('[onclick*="switchPage(\'calendar\'"]')||document.querySelectorAll('.nav-tab')[1]);
   renderCalendar();
   if(ids.length===1){setTimeout(()=>openDetail(ids[0]),150);}

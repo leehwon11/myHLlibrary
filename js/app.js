@@ -24,6 +24,7 @@ const RIDI_REL=['재회물','오래된연인','첫사랑','친구>연인','라�
 const RIDI_ML_TYPES=['츤데레남','조신남','평범남','뇌섹남','능력남','재벌남','사이다남','직진남','계략남','능글남','다정남','애교남','유혹남','절륜남','집착남','나쁜남자','후회남','상처남','짝사랑남','순정남','철벽남','동정남','순진남','까칠남','냉정남','무심남','오만남','카리스마남','존댓말남','대형견남','연하남','사차원남'];
 const RIDI_FL_TYPES=['평범녀','뇌섹녀','능력녀','재벌녀','사이다녀','직진녀','계략녀','능글녀','다정녀','애교녀','유혹녀','절륜녀','집착녀','나쁜여자','후회녀','상처녀','짝사랑녀','순정녀','철벽녀','동정녀','순진녀','까칠녀','냉정녀','무심녀','도도녀','외유내강','우월녀','걸크러시','털털녀','엉뚱녀','쾌활발랄녀'];
 let books=[];
+let appSettings={yearlyGoal:30};
 // 장르 색상 조회용 고정 맵 (DEFAULT_GENRES 기반, 수정 불필요)
 const GENRE_COLOR_MAP=Object.fromEntries(DEFAULT_GENRES.map(g=>[g.name,g.color]));
 
@@ -34,6 +35,7 @@ const SUPABASE_URL='https://gnwdcjdmtrwnbjbpswuh.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdud2RjamRtdHJ3bmJqYnBzd3VoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk4NDE3OTMsImV4cCI6MjEwNTQxNzc5M30.ruGk6emBXdz4PCif06ZGX8zx0vC6rrBdfSpHK_Rdz40';
 const SUPABASE_TABLE='library_data';
 const SUPABASE_ROW_ID='main';
+const RIDI_PROXY_URL=SUPABASE_URL+'/functions/v1/ridifetch';
 let sb=null;
 function getSupabase(){
   if(sb)return sb;
@@ -51,10 +53,26 @@ const DB_NAME='myLibDB',DB_VERSION=1,STORE='kvStore';let _db=null;
 function openDB(){return new Promise((res,rej)=>{if(_db){res(_db);return;}const req=indexedDB.open(DB_NAME,DB_VERSION);req.onupgradeneeded=e=>e.target.result.createObjectStore(STORE);req.onsuccess=e=>{_db=e.target.result;res(_db);};req.onerror=e=>rej(e.target.error);});}
 function idbGet(key){return openDB().then(db=>new Promise((res,rej)=>{const tx=db.transaction(STORE,'readonly');const r=tx.objectStore(STORE).get(key);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);})).catch(()=>null);}
 
+function normalizeBook(b){
+  if(!b) return b;
+  if(b.genres!==undefined&&b.genre===undefined){b.genre=b.genres;delete b.genres;}
+  if(b.dateStart!==undefined&&b.datestart===undefined){b.datestart=b.dateStart;delete b.dateStart;}
+  if(b.dateEnd!==undefined&&b.dateend===undefined){b.dateend=b.dateEnd;delete b.dateEnd;}
+  if(b.sojai!==undefined&&b.sojaiTags===undefined){b.sojaiTags=b.sojai.map(t=>t.startsWith('#')?t:'#'+t);delete b.sojai;}
+  if(b.rel!==undefined&&b.relTags===undefined){b.relTags=b.rel.map(t=>t.startsWith('#')?t:'#'+t);delete b.rel;}
+  if(!b.genre) b.genre=[];
+  else if(typeof b.genre==='string') b.genre=b.genre?[b.genre]:[];
+  if(!b.createdAt) b.createdAt=b.created||new Date().toISOString();
+  if(b.created){delete b.created;}
+  if(b.status==='읽고싶은') b.status='읽고싶어요';
+  return b;
+}
+
 async function saveData(){
+  const payload={books,appSettings};
+  try{localStorage.setItem('library_backup',JSON.stringify(payload));}catch(e){}
   const client=getSupabase();if(!client)return;
   try{
-    const payload={books};
     const{error}=await client.from(SUPABASE_TABLE).upsert({id:SUPABASE_ROW_ID,value:payload,updated_at:new Date().toISOString()});
     if(error)throw error;
   }catch(e){console.error('saveData(Supabase) 오류:',e);showToast('저장 중 오류가 발생했어요. Supabase 연결/테이블 설정을 확인해주세요.');}
@@ -79,7 +97,8 @@ async function loadFromDB(){
     const{data,error}=await client.from(SUPABASE_TABLE).select('value').eq('id',SUPABASE_ROW_ID).maybeSingle();
     if(error)throw error;
     if(data&&data.value){
-      books=data.value.books||[];
+      books=(data.value.books||[]).map(normalizeBook);
+      if(data.value.appSettings) appSettings={...appSettings,...data.value.appSettings};
     }else{
       const migrated=await tryMigrateFromIndexedDB();
       if(!migrated)books=[];
@@ -87,11 +106,19 @@ async function loadFromDB(){
     }
   }catch(e){
     console.error('loadFromDB(Supabase) 오류:',e);
+    try{
+      const backup=localStorage.getItem('library_backup');
+      if(backup){
+        const d=JSON.parse(backup);
+        books=(d.books||[]).map(normalizeBook);
+        if(d.appSettings) appSettings={...appSettings,...d.appSettings};
+        showToast('로컬 백업에서 데이터를 불러왔어요.');
+        return;
+      }
+    }catch(e2){}
     showToast('⚠️ Supabase에서 데이터를 불러오지 못했어요. URL/키/테이블 설정을 확인해주세요.');
     books=[];
   }
-  // genre 항상 배열로 정규화
-  books=books.map(b=>{if(!b.genre)b.genre=[];else if(typeof b.genre==='string')b.genre=b.genre?[b.genre]:[];return b;});
 }
 
 // ══════════════ 상태 ══════════════
@@ -248,7 +275,7 @@ function renderMlAcc(){
 function _renderMlTypeTag(id,tag,wrap){const span=document.createElement('span');span.className='stag';const txt=document.createTextNode(tag+' ');const del=document.createElement('button');del.className='stag-del';del.textContent='✕';del.onclick=(t=>()=>{const m=mlData.find(x=>x.id===id);if(m)m.typeTags=(m.typeTags||[]).filter(x=>x!==t);span.remove();renderQuickTagsMl(id,wrap);})(tag);span.appendChild(txt);span.appendChild(del);wrap.appendChild(span);}
 
 // ══════════════ PAGE SWITCH ══════════════
-function switchPage(id,el){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');el.classList.add('active');if(id==='stats')renderStats();if(id==='calendar'){renderCalendar();renderGoal();}updateLogo();}
+function switchPage(id,el){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');el.classList.add('active');if(id==='stats')renderStats();if(id==='calendar')renderCalendar();updateLogo();}
 
 // ══════════════ SHARE CARD ══════════════
 const SHARE_THEMES={cream:{bg:'#fdf6ee',bg2:'#f0e8d8',accent:'#8a5a36',text:'#2a1a0a',star:'#c09050',line:'#e0d0b8'},navy:{bg:'#1a2440',bg2:'#233060',accent:'#c0d0f0',text:'#e8eeff',star:'#f5c518',line:'#3a4a70'},rose:{bg:'#fdf0f4',bg2:'#f0d8e4',accent:'#9b4f6a',text:'#2a1020',star:'#c06080',line:'#e8c8d4'},dark:{bg:'#13121a',bg2:'#1e1c28',accent:'#9ab5e0',text:'#f0eef8',star:'#f5c518',line:'#2e2c3e'}};
@@ -307,8 +334,7 @@ function importJSON(e){
     try{
       const data=JSON.parse(ev.target.result);
       if(!data.books||!Array.isArray(data.books))throw new Error('books 배열 없음');
-      // BUG FIX: import 시에도 genre 항상 배열로 정규화
-      data.books=data.books.map(b=>{if(!b.genre)b.genre=[];else if(typeof b.genre==='string')b.genre=b.genre?[b.genre]:[];return b;});
+      data.books=data.books.map(normalizeBook);
       _pendingImportData=data;
       document.getElementById('importChoiceInfo').textContent=`불러올 파일에 책 ${data.books.length}권이 들어있어요. 현재 서재에는 ${books.length}권이 있어요.`;
       document.getElementById('importChoiceOv').classList.add('open');
@@ -351,16 +377,12 @@ async function fetchRidiBook(){
   if(btn){btn.textContent='불러오는 중...';btn.disabled=true;}
   let html='';
   try{
-    const proxies=[
-      // Netlify 서버사이드 프록시 (배포 폴더에 netlify/functions/ridifetch.js 필요)
-      ()=>fetch('/.netlify/functions/ridifetch?url='+encodeURIComponent(url)).then(r=>{if(!r.ok)throw new Error('netlify fn '+r.status);return r.text();}),
-      // 폴백: allorigins (불안정할 수 있음)
-      ()=>fetch('https://api.allorigins.win/get?url='+encodeURIComponent(url)).then(r=>r.json()).then(d=>{if(!d.contents)throw new Error('allorigins empty');return d.contents;}),
-    ];
-    for(const proxy of proxies){
-      try{html=await proxy();if(html&&html.includes('og:title'))break;}catch(e){continue;}
-    }
-    if(!html||!html.includes('og:title'))throw new Error('모든 프록시 실패');
+    const resp=await fetch(RIDI_PROXY_URL+'?url='+encodeURIComponent(url),{
+      headers:{'Authorization':'Bearer '+SUPABASE_ANON_KEY}
+    });
+    if(!resp.ok) throw new Error('프록시 오류: '+resp.status);
+    html=await resp.text();
+    if(!html||!html.includes('og:title')) throw new Error('페이지를 불러오지 못했어요');
 
     // ── 메타 태그 파싱: 따옴표 혼재 대응 ──
     const getMeta=p=>{
@@ -499,10 +521,6 @@ async function handleFontUpload(e){
 }
 function deleteUserFont(id){userFonts=userFonts.filter(f=>f.id!==id);if(currentFont===id){currentFont='noto-sans';applyFont(currentFont);localStorage.setItem('myLib_font',currentFont);}try{localStorage.setItem('myLib_userFonts',JSON.stringify(userFonts));}catch(e){}renderFontList();showToast('폰트가 삭제됐어요.');}
 
-// ══════════════ 도움말 ══════════════
-function openHelp(){document.getElementById('helpOv').classList.add('open');}
-function closeHelp(){document.getElementById('helpOv').classList.remove('open');}
-function toggleHla(head){head.nextElementSibling.classList.toggle('open');head.querySelector('.hla-arrow').classList.toggle('open');}
 
 // ══════════════ 서재 이름 ══════════════
 const LIB_EMOJIS=['📚','🔖','📖','✨','💫','🌸','🌷','🌺','💐','🍀','🌿','☘️','🦋','🌙','⭐','💖','💜','💙','🩷','🍵','☕','🕯️','🎀'];
