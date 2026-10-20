@@ -21,7 +21,6 @@
     <button class="settings-btn" onclick="openSettings()" title="테마/폰트">⚙</button>
     <button class="theme-btn" id="themeBtn" onclick="toggleDark()" title="다크 모드">🌙</button>
     <button class="hbtn" onclick="openJsonMenu()">⇅</button>
-    <button class="hbtn" onclick="openHelp()" style="font-weight:700;border-radius:50%;width:34px;height:34px;padding:0;display:flex;align-items:center;justify-content:center;flex-shrink:0">?</button>
   </div>
   <div style="position:relative">
     <button class="hbtn more-btn" id="moreBtn" onclick="toggleMoreMenu()" title="더보기" style="display:none">⋯</button>
@@ -30,7 +29,6 @@
       <button class="more-menu-item" onclick="closeMoreMenu();openSettings()">⚙ 테마 / 폰트</button>
       <button class="more-menu-item" onclick="closeMoreMenu();toggleDark()">🌙 다크 모드</button>
       <button class="more-menu-item" onclick="closeMoreMenu();openJsonMenu()">⇅ 데이터 내보내기/불러오기</button>
-      <button class="more-menu-item" onclick="closeMoreMenu();openHelp()">? 도움말</button>
     </div>
   </div>
   <button class="hbtn primary" onclick="openAdd()">+ 추가</button>
@@ -324,80 +322,6 @@
 </div>
 </div>
 
-<!-- HELP MODAL -->
-<div class="ov" id="helpOv" onclick="ovClick(event,'helpOv',closeHelp)">
-<div class="modal" style="max-width:640px;max-height:88vh">
-  <div class="modal-head"><h2>📖 나의 서재 — 도움말</h2><button class="btn-x" onclick="closeHelp()">✕</button></div>
-  <div class="modal-body" style="display:flex;flex-direction:column;gap:24px">
-    <div style="background:var(--acc-bg);border:1px solid rgba(44,82,130,.15);border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:10px">
-      <span style="font-size:20px">✨</span>
-      <div>
-        <div style="font-size:13px;font-weight:600;color:var(--acc)">현재 버전 v1.8</div>
-        <div style="font-size:12px;color:var(--txt3)">HL 전용 독서 기록 앱</div>
-        <div style="font-size:12px;color:var(--txt3)">모든 건의 및 문의 사항은 트위터 @HLismy1ife 바이오 링크 익명 질문함으로 주세요!</div>
-        <div style="font-size:12px;font-weight:700;color:#b04040;background:#fdf0f0;border:1px solid rgba(176,64,64,.2);border-radius:5px;padding:4px 8px;margin-top:2px">⚠️ HL 외 BL&GL 장르로 사용하지 마세요.</div>
-      </div>
-    </div>
-    <div>
-      <div class="help-section-title">🆕 업데이트 내역</div>
-      <div class="help-log-acc">
-        <div class="hla-item">
-          <div class="hla-head" onclick="toggleHla(this)">
-            <span class="help-log-ver">v1.8</span>
-            <span class="hla-summary">버그수정 + 장르 색상 수정 + 히트맵 연동 + JSON 병합 + 자동 높이 입력칸</span>
-            <span class="hla-arrow">▶</span>
-          </div>
-          <div class="hla-body">
-            <ul class="hla-list">
-              <li>버그: 장르 관리 버튼이 어디서도 눌리지 않던 문제 수정 (헤더에 버튼 추가)</li>
-              <li>버그: 상세보기 태그 클릭 시 태그에 따옴표가 있으면 화면이 깨지던 문제 수정</li>
-              <li>버그: 작품 URL에 따옴표가 있으면 링크가 깨지던 문제 수정 (이스케이프 처리)</li>
-              <li>버그: 추천 카드에서 URL로 넣은 표지가 아예 안 보이던 문제 수정 (CORS 설정 원인)</li>
-              <li>UX: 삭제 확인창을 브라우저 기본 alert 대신 앱 스타일 모달로 교체 (책 삭제·장르 삭제)</li>
-              <li>UX: 모바일 헤더 아이콘 과밀 해소 — 600px 이하에서 "⋯" 더보기 메뉴로 정리</li>
-              <li>UX: 연간 완독 히트맵에서 날짜 클릭 시 완독 캘린더의 해당 월/책 상세로 바로 이동</li>
-              <li>UX: JSON 불러오기에 "병합" / "덮어쓰기" 선택 추가 (기존엔 무조건 덮어쓰기)</li>
-              <li>UX: 장르 관리에서 기본 장르 포함 모든 장르의 색상을 직접 수정 가능</li>
-              <li>UX: 줄거리·총평·메모·남주/여주 소개·발췌 입력칸이 수동 리사이즈 대신 내용에 맞춰 자동으로 늘어남</li>
-              <li>UX: 독서 상태를 "읽는 중"으로 바꾸면 읽기 시작일도 오늘 날짜로 자동 입력 (완독과 동일한 방식)</li>
-              <li>변경: "플랫폼 URL" 라벨을 "작품 URL"로 변경</li>
-              <li>변경: "감정 태그 (독후감 무드)" 라벨에서 괄호 설명 삭제</li>
-              <li>삭제: 실제로 구현되지 않았던 "읽는 중 진행률 게이지" 안내 문구 제거</li>
-            </ul>
-          </div>
-        </div>
-        <div class="hla-item">
-          <div class="hla-head" onclick="toggleHla(this)">
-            <span class="help-log-ver">v1.7</span>
-            <span class="hla-summary">버그수정 + UX개선 + 히트맵 + 감정태그 + 비슷한 책</span>
-            <span class="hla-arrow">▶</span>
-          </div>
-          <div class="hla-body">
-            <ul class="hla-list">
-              <li>버그: genre 항상 배열로 통일 (문자열/배열 혼재 완전 제거)</li>
-              <li>버그: 완독 상태 전환 시 완독일 자동 오늘 날짜 제안</li>
-              <li>버그: 장르 삭제 시 books의 genre name 기준으로 정확히 교체</li>
-              <li>버그: ctx.roundRect 구형 브라우저 폴리필 (arc+lineTo 방식)</li>
-              <li>UX: 검색 결과 하이라이팅 (제목·저자 노란색 강조)</li>
-              <li>UX: 필터/정렬/검색어 sessionStorage 유지 (새로고침 후 복원)</li>
-              <li>UX: 모바일 bottom-sheet 모달 (600px 이하 슬라이드업)</li>
-              <li>UX: 카드 드래그로 순서 변경 + 사용자 지정 순서 정렬 옵션</li>
-              <li>UX: 표지 이미지 URL 직접 입력 지원</li>
-              <li>신규: 연간 완독 히트맵 (통계 탭 — GitHub 잔디 스타일)</li>
-              <li>신규: 감정 태그 8종 (독후감 무드 선택 + 통계 분포)</li>
-              <li>신규: 비슷한 책 추천 (장르·태그 기반 스코어링, 상세보기 하단)</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="modal-foot">
-    <span style="font-size:11px;color:var(--txt4)">데이터는 IndexedDB에 자동 저장돼요.</span>
-    <div class="ml-auto"><button class="btn primary" onclick="closeHelp()">확인</button></div>
-  </div>
-</div>
-</div>
 
 <!-- LIB NAME MODAL -->
 <div class="ov" id="libNameOv" onclick="ovClick(event,'libNameOv',closeLibName)">

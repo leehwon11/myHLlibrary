@@ -40,5 +40,5 @@ function clearGoal(){const year=new Date().getFullYear();localStorage.removeItem
   await loadFromDB();
   updateLogo();loadFilterState();render();
   const n=new Date();calYear=n.getFullYear();calMonth=n.getMonth();
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'){['editOv','detailOv','jsonOv','shareOv','settingsOv','helpOv','libNameOv','confirmOv','importChoiceOv'].forEach(id=>{document.getElementById(id)?.classList.remove('open');});}});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){['editOv','detailOv','jsonOv','shareOv','settingsOv','libNameOv','confirmOv','importChoiceOv'].forEach(id=>{document.getElementById(id)?.classList.remove('open');});}});
 })();
