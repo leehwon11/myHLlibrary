@@ -384,6 +384,7 @@ document.addEventListener('DOMContentLoaded',async()=>{
   loadFilterState();
   render();
   updateLogo();
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){['editOv','detailOv','jsonOv','shareOv','settingsOv','libNameOv','confirmOv','importChoiceOv'].forEach(id=>{document.getElementById(id)?.classList.remove('open');});}});
 });
 </script>
 </body>
