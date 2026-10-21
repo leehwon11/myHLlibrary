@@ -144,7 +144,7 @@ function renderStreak(){
   const milestones=[7,14,30,50,100];
   const milestonesHtml=milestones.map(m=>{
     const achieved=s.longestStreak>=m;
-    return `<span class="streak-milestone${achieved?' achieved'}">${achieved?'🏆':'🔒'} ${m}일</span>`;
+    return `<span class="streak-milestone${achieved?' achieved':''}">${achieved?'🏆':'🔒'} ${m}일</span>`;
   }).join('');
 
   const fireSize=Math.min(3,Math.floor(s.currentStreak/7)+1);
