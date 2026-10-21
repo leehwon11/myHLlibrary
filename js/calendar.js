@@ -30,18 +30,32 @@ function renderCalendar(){
     dayMap[day].push(b);
   });
 
+  const streakData=calcStreaks();
+  const streakDates=streakData.dateSet;
+
   let gridHtml='';
   for(let i=0;i<firstDay;i++) gridHtml+=`<div class="cal-day cal-empty"></div>`;
   for(let d=1;d<=daysInMonth;d++){
     const dateStr=`${year}-${monthStr}-${String(d).padStart(2,'0')}`;
     const hasBook=dayMap[d];
     const isToday=dateStr===todayStr;
+    const isStreakDay=streakDates.has(dateStr);
     const dow=(firstDay+d-1)%7;
     let cls='cal-day';
     if(hasBook) cls+=' has-book';
     if(isToday) cls+=' today';
     if(dow===0) cls+=' sun';
     if(dow===6) cls+=' sat';
+    if(isStreakDay){
+      const prevDate=new Date(year,month,d-1);
+      const nextDate=new Date(year,month,d+1);
+      const prevIn=streakDates.has(prevDate.toISOString().slice(0,10));
+      const nextIn=streakDates.has(nextDate.toISOString().slice(0,10));
+      if(prevIn&&nextIn) cls+=' streak-mid';
+      else if(prevIn) cls+=' streak-end';
+      else if(nextIn) cls+=' streak-start';
+      else cls+=' streak-single';
+    }
     const dot=hasBook?`<span class="cal-dot"></span>`:'';
     const onclick=hasBook?`onclick="scrollToCalBooks()"`:'';
     gridHtml+=`<div class="${cls}" ${onclick}>${d}${dot}</div>`;
@@ -70,6 +84,92 @@ function renderCalendar(){
   if(sidebarTitle) sidebarTitle.textContent=(month+1)+'월 완독 ('+monthBooks.length+'권)';
 
   renderGoal();
+  renderStreak();
+}
+
+function calcStreaks(){
+  const done=books.filter(b=>b.status==='완독'&&b.dateend);
+  const dateSet=new Set();
+  done.forEach(b=>{const d=b.dateend.slice(0,10);if(d)dateSet.add(d);});
+
+  const today=new Date();
+  today.setHours(0,0,0,0);
+  const todayStr=today.toISOString().slice(0,10);
+
+  let currentStreak=0;
+  const d=new Date(today);
+  if(!dateSet.has(todayStr)){
+    d.setDate(d.getDate()-1);
+    if(!dateSet.has(d.toISOString().slice(0,10))){
+      currentStreak=0;
+    }else{
+      currentStreak=1;
+      d.setDate(d.getDate()-1);
+      while(dateSet.has(d.toISOString().slice(0,10))){currentStreak++;d.setDate(d.getDate()-1);}
+    }
+  }else{
+    currentStreak=1;
+    d.setDate(d.getDate()-1);
+    while(dateSet.has(d.toISOString().slice(0,10))){currentStreak++;d.setDate(d.getDate()-1);}
+  }
+
+  const sorted=[...dateSet].sort();
+  let longestStreak=0,tempStreak=1;
+  for(let i=1;i<sorted.length;i++){
+    const prev=new Date(sorted[i-1]);
+    const curr=new Date(sorted[i]);
+    const diff=(curr-prev)/86400000;
+    if(diff===1){tempStreak++;}
+    else{longestStreak=Math.max(longestStreak,tempStreak);tempStreak=1;}
+  }
+  longestStreak=Math.max(longestStreak,tempStreak);
+  if(!sorted.length) longestStreak=0;
+
+  const year=today.getFullYear();
+  const month=today.getMonth();
+  const daysInMonth=new Date(year,month+1,0).getDate();
+  const daysPassed=today.getDate();
+  let monthReadDays=0;
+  const monthStr=`${year}-${String(month+1).padStart(2,'0')}`;
+  dateSet.forEach(ds=>{if(ds.startsWith(monthStr)) monthReadDays++;});
+
+  return{currentStreak,longestStreak,monthReadDays,daysPassed,daysInMonth,dateSet};
+}
+
+function renderStreak(){
+  const el=document.getElementById('streakCard');
+  if(!el) return;
+  const s=calcStreaks();
+
+  const milestones=[7,14,30,50,100];
+  const milestonesHtml=milestones.map(m=>{
+    const achieved=s.longestStreak>=m;
+    return `<span class="streak-milestone${achieved?' achieved'}">${achieved?'🏆':'🔒'} ${m}일</span>`;
+  }).join('');
+
+  const fireSize=Math.min(3,Math.floor(s.currentStreak/7)+1);
+  const fires='🔥'.repeat(fireSize);
+
+  el.innerHTML=`
+    <div class="streak-header">
+      <span class="streak-fire">${fires}</span>
+      <span class="streak-count">${s.currentStreak}</span>
+      <span class="streak-unit">일 연속 독서${s.currentStreak>0?'중!':''}</span>
+    </div>
+    <div class="streak-stats">
+      <div class="streak-stat">
+        <div class="streak-stat-num">${s.longestStreak}</div>
+        <div class="streak-stat-label">최장 기록</div>
+      </div>
+      <div class="streak-stat">
+        <div class="streak-stat-num">${s.monthReadDays}<span style="font-size:12px;color:var(--txt3)">/${s.daysPassed}</span></div>
+        <div class="streak-stat-label">이번 달 독서일</div>
+      </div>
+    </div>
+    <div class="streak-milestones">${milestonesHtml}</div>
+    ${s.currentStreak===0?'<div class="streak-msg">오늘 책을 완독하면 스트릭이 시작돼요!</div>':''}
+    ${s.currentStreak>=7?'<div class="streak-msg streak-msg-good">대단해요! 꾸준히 읽고 있어요 👏</div>':''}
+  `;
 }
 
 function renderGoal(){

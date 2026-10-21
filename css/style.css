@@ -264,6 +264,12 @@ body.dark .heatmap-cell.lv1{background:#1a4030}body.dark .heatmap-cell.lv2{backg
 .cal-dot{width:5px;height:5px;border-radius:50%;background:var(--acc);flex-shrink:0}
 .cal-day.today{outline:2px solid var(--acc2);outline-offset:-1px;font-weight:700}.cal-day.today:not(.has-book){color:var(--acc2)}
 .cal-empty{visibility:hidden}
+.cal-day.streak-start,.cal-day.streak-mid,.cal-day.streak-end,.cal-day.streak-single{background:var(--amber-bg);border:1px solid rgba(176,106,0,.18)}
+.cal-day.streak-start{border-radius:8px 2px 2px 8px}
+.cal-day.streak-mid{border-radius:2px}
+.cal-day.streak-end{border-radius:2px 8px 8px 2px}
+.cal-day.streak-single{border-radius:8px}
+.cal-day.has-book.streak-start,.cal-day.has-book.streak-mid,.cal-day.has-book.streak-end,.cal-day.has-book.streak-single{background:var(--acc-bg);border-color:rgba(44,82,130,.25)}
 .cal-sidebar{display:flex;flex-direction:column;gap:16px}
 .cal-sidebar-title{font-size:11px;font-weight:600;color:var(--txt3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px}
 .cal-books-list{display:flex;flex-direction:column;gap:6px}
@@ -365,6 +371,22 @@ body.dark .sticker-yellow{background:#252010;color:#d4c870;border-color:rgba(212
 .char-bar-track{flex:1;background:var(--bg3);border-radius:4px;height:14px;overflow:hidden}
 .char-bar-fill{height:100%;border-radius:4px;transition:width .5s}
 .char-bar-count{font-size:11px;color:var(--txt4);width:28px}
+/* ── 완독 배지 ── */
+/* ── 독서 스트릭 ── */
+.streak-card{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);padding:16px;display:flex;flex-direction:column;gap:12px}
+.streak-header{display:flex;align-items:baseline;gap:6px}
+.streak-fire{font-size:20px;line-height:1}
+.streak-count{font-family:var(--font-display);font-size:36px;color:var(--amber);line-height:1}
+.streak-unit{font-size:13px;color:var(--txt2);font-weight:500}
+.streak-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.streak-stat{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;text-align:center}
+.streak-stat-num{font-family:var(--font-display);font-size:22px;color:var(--txt);line-height:1.2}
+.streak-stat-label{font-size:11px;color:var(--txt3);margin-top:2px}
+.streak-milestones{display:flex;flex-wrap:wrap;gap:6px}
+.streak-milestone{font-size:11px;padding:3px 8px;border-radius:12px;background:var(--bg2);color:var(--txt4);border:1px solid var(--line)}
+.streak-milestone.achieved{background:var(--amber-bg);color:var(--amber);border-color:rgba(176,106,0,.25);font-weight:600}
+.streak-msg{font-size:12px;color:var(--txt3);text-align:center}
+.streak-msg-good{color:var(--green);font-weight:500}
 /* ── 완독 배지 ── */
 .card-reread-badge{position:absolute;top:8px;left:8px;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;background:rgba(44,82,130,.85);color:#fff;backdrop-filter:blur(3px);z-index:3}
 .card-tbr-badge{position:absolute;bottom:32px;left:8px;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;background:rgba(176,106,0,.9);color:#fff;backdrop-filter:blur(3px);z-index:3;animation:tbrPulse 2s ease-in-out infinite}
