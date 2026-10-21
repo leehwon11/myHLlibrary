@@ -19,9 +19,10 @@ function getSortedFiltered(){
   else if(sort==='rating-asc')list.sort((a,b)=>(a.rating||0)-(b.rating||0));
   else if(sort==='title')list.sort((a,b)=>a.title.localeCompare(b.title,'ko'));
   else if(sort==='custom'&&customOrder){const om=new Map(customOrder.map((id,i)=>[id,i]));list.sort((a,b)=>(om.has(a.id)?om.get(a.id):9999)-(om.has(b.id)?om.get(b.id):9999));}
+  else if(sort==='tbr'){const to=appSettings.tbrOrder||[];const om=new Map(to.map((id,i)=>[id,i]));list.sort((a,b)=>(om.has(a.id)?om.get(a.id):9999)-(om.has(b.id)?om.get(b.id):9999));}
   return list;
 }
-function renderCard(b,q){
+function renderCard(b,q,isTbrNext){
   const gKey=(b.genre||[])[0]||'기타';const g=getGenre(gKey);
   const sb=b.status?({완독:'<span class="status-badge sb-완독">✅ 완독</span>',읽는중:'<span class="status-badge sb-읽는중">📖 읽는중</span>',읽고싶어요:'<span class="status-badge sb-읽고싶어요">🔖 읽고싶어요</span>'}[b.status]||''):'';
   const ageBadge=b.agerating?`<span class="age-badge age-${b.agerating}">${b.agerating}</span>`:'';
@@ -34,7 +35,8 @@ function renderCard(b,q){
 
   const moodHtml=b.moods&&b.moods.length?`<div class="mood-card-tag">${MOOD_OPTIONS.find(m=>m.label===b.moods[0])?.emoji||''} ${b.moods[0]}</div>`:'';
   const rereadBadge=(b.rereads&&b.rereads.length)?`<span class="card-reread-badge">🔄 ${b.rereads.length}회독</span>`:'';
-  const cover=b.cover?`<div class="card-cover"><img src="${b.cover}" alt="">${dot}${sb}${rereadBadge}${favBtn}</div>`:`<div class="card-cover"><div class="card-cover-ph" style="background:${hexToRgba(g.color,.06)}"><span class="ph-icon" style="color:${g.color};opacity:.3">📖</span><span class="ph-title">${escHtml(b.title)}</span></div>${dot}${sb}${rereadBadge}${favBtn}</div>`;
+  const tbrBadge=isTbrNext?'<span class="card-tbr-badge">📌 다음에 읽을 책</span>':'';
+  const cover=b.cover?`<div class="card-cover"><img src="${b.cover}" alt="">${dot}${sb}${rereadBadge}${tbrBadge}${favBtn}</div>`:`<div class="card-cover"><div class="card-cover-ph" style="background:${hexToRgba(g.color,.06)}"><span class="ph-icon" style="color:${g.color};opacity:.3">📖</span><span class="ph-title">${escHtml(b.title)}</span></div>${dot}${sb}${rereadBadge}${tbrBadge}${favBtn}</div>`;
   return`<div class="book-card" draggable="true" data-id="${b.id}" onclick="openDetail('${b.id}')" ondragstart="onDragStart(event,'${b.id}')" ondragover="onDragOver(event)" ondrop="onDrop(event,'${b.id}')" ondragleave="onDragLeave(event)" ondragend="onDragEnd(event)">${cover}<div class="card-body"><div style="display:flex;align-items:flex-start;gap:5px;margin-bottom:3px"><div class="card-title" style="flex:1;margin-bottom:0">${titleHl}</div>${ageBadge}</div><div class="card-author">${authorHl}</div><div class="card-stars">${stars(b.rating||0)}</div><div class="card-tags">${tags}</div>${moodHtml}</div></div>`;
 }
 function render(){
@@ -43,9 +45,18 @@ function render(){
   const filtered=getSortedFiltered();const grid=document.getElementById('bookGrid');
   if(!filtered.length){grid.innerHTML='<div class="empty"><div class="empty-ico">📚</div><p>등록된 책이 없어요.</p></div>';return;}
   grid.innerHTML='';
-  filtered.forEach(b=>{grid.insertAdjacentHTML('beforeend',renderCard(b,q));});
+  const sort=document.getElementById('sortSelect')?.value||'';
+  const tbrTop=(sort==='tbr'&&filtered.length)?filtered[0].id:null;
+  filtered.forEach(b=>{grid.insertAdjacentHTML('beforeend',renderCard(b,q,b.id===tbrTop));});
 }
-function setStatusFilter(val){currentStatusFilter=val;document.querySelectorAll('.sp').forEach(p=>p.classList.toggle('sp-on',p.dataset.sv===val));render();}
+function setStatusFilter(val){
+  currentStatusFilter=val;
+  document.querySelectorAll('.sp').forEach(p=>p.classList.toggle('sp-on',p.dataset.sv===val));
+  if(val==='읽고싶어요'&&(appSettings.tbrOrder||[]).length){
+    const sel=document.getElementById('sortSelect');if(sel)sel.value='tbr';
+  }
+  render();
+}
 
 // ══════════════ 드래그 앤 드롭 ══════════════
 let _dragId=null;
@@ -56,6 +67,14 @@ function onDragEnd(e){e.currentTarget.classList.remove('dragging');document.quer
 function onDrop(e,targetId){
   e.preventDefault();document.querySelectorAll('.book-card').forEach(c=>c.classList.remove('drag-over','dragging'));
   if(!_dragId||_dragId===targetId){_dragId=null;return;}
+  const sort=document.getElementById('sortSelect')?.value||'';
+  if(sort==='tbr'){
+    const wishIds=(appSettings.tbrOrder||[]).length?[...appSettings.tbrOrder]:books.filter(b=>b.status==='읽고싶어요').map(b=>b.id);
+    const fi=wishIds.indexOf(_dragId),ti=wishIds.indexOf(targetId);
+    if(fi!==-1&&ti!==-1){wishIds.splice(fi,1);wishIds.splice(ti,0,_dragId);}
+    appSettings.tbrOrder=wishIds;saveData();
+    _dragId=null;render();showToast('TBR 우선순위가 변경됐어요!');return;
+  }
   let order=customOrder?[...customOrder]:books.map(b=>b.id);
   const fi=order.indexOf(_dragId),ti=order.indexOf(targetId);
   if(fi===-1){order=books.map(b=>b.id);}const fi2=order.indexOf(_dragId),ti2=order.indexOf(targetId);
