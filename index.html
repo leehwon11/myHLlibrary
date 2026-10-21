@@ -65,15 +65,8 @@
     <div class="grid" id="bookGrid"></div>
   </div>
   <div class="page" id="page-stats">
-  <div class="stats-tabs">
-    <button class="stats-tab active" onclick="switchStatsTab('overview',this)">📊 개요</button>
-    <button class="stats-tab" onclick="switchStatsTab('chart',this)">📈 차트</button>
-    <button class="stats-tab" onclick="switchStatsTab('tags',this)">🏷 태그</button>
-    <button class="stats-tab" onclick="switchStatsTab('char',this)">💙 캐릭터</button>
-    <button class="stats-tab" onclick="switchStatsTab('mood',this)">💭 감정</button>
+    <div id="statsContent"></div>
   </div>
-  <div id="statsContent"></div>
-</div>
   <div class="page" id="page-calendar">
     <div class="cal-nav">
       <button class="cal-nav-btn" onclick="calPrevMonth()">◀</button>
