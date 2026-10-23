@@ -1,6 +1,6 @@
 // ══════════════ 나의 서재 — 홈 ══════════════
 
-let _excShift=0;
+let _excPick=null;
 
 function allExcerpts(){
   return books.slice().sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt))
@@ -61,16 +61,40 @@ function shelfSection(title,list,status,more){
   return`<section class="sec"><div class="sec-head"><h2 class="sec-title">${title}</h2><button class="link-btn" onclick="goShelf('${status}')">${more}</button></div><div class="shelf-row">${list.slice(0,6).map(b=>renderCard(b,'')).join('')}</div></section>`;
 }
 
+function hashStr(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+
+// 발췌가 많은 책이 자주 나오지 않도록 책을 먼저 고르고, 그 책 안에서 발췌를 고른다
+function pickExcerpt(){
+  const groups=books.map(b=>({b,exc:(b.excerpts||[]).filter(e=>e.text)})).filter(g=>g.exc.length);
+  if(!groups.length) return null;
+  if(_excPick){
+    const g=groups.find(x=>x.b.id===_excPick.bookId);
+    if(g&&g.exc[_excPick.idx]) return{b:g.b,e:g.exc[_excPick.idx],groups};
+  }
+  const day=localDate();
+  const g=groups[hashStr(day)%groups.length];
+  return{b:g.b,e:g.exc[hashStr(day+'|'+g.b.id)%g.exc.length],groups};
+}
+
+function nextExcerpt(currentId){
+  const groups=books.map(b=>({b,exc:(b.excerpts||[]).filter(e=>e.text)})).filter(g=>g.exc.length);
+  const others=groups.filter(g=>g.b.id!==currentId);
+  const pool=others.length?others:groups;
+  const g=pool[Math.floor(Math.random()*pool.length)];
+  _excPick={bookId:g.b.id,idx:Math.floor(Math.random()*g.exc.length)};
+  renderHome();
+}
+
 function todayExcerptHtml(){
-  const ex=allExcerpts();
-  if(!ex.length) return`<div class="ink-card today-exc"><div class="today-exc-top"><span class="today-exc-label">오늘의 발췌</span></div><p class="today-exc-text" style="cursor:default">마음에 남은 문장을 발췌로 남겨두면, 매일 하나씩 여기에 보여드려요.</p></div>`;
-  const seed=Number(localDate().replace(/-/g,''));
-  const {e,b}=ex[(seed+_excShift)%ex.length];
+  const pick=pickExcerpt();
+  if(!pick) return`<div class="ink-card today-exc"><div class="today-exc-top"><span class="today-exc-label">오늘의 발췌</span></div><p class="today-exc-text" style="cursor:default">마음에 남은 문장을 발췌로 남겨두면, 매일 하나씩 여기에 보여드려요.</p></div>`;
+  const {e,b,groups}=pick;
+  const total=groups.reduce((s,g)=>s+g.exc.length,0);
   const chips=[e.speaker?`<span class="chip chip-ink">${escHtml(e.speaker)}</span>`:'',...(e.tags||[]).slice(0,3).map(t=>`<span class="chip chip-ink">${escHtml(t)}</span>`)].join('');
   return`<div class="ink-card today-exc">
     <div class="today-exc-top"><span class="today-exc-label">오늘의 발췌</span>${chips}</div>
     <p class="today-exc-text" onclick="openDetail('${b.id}')">${escHtml(e.text)}</p>
-    <div class="today-exc-src"><span>「${escHtml(b.title)}」${e.location?' '+escHtml(e.location):''}</span>${ex.length>1?`<button class="ink-btn" onclick="_excShift++;renderHome()">다른 발췌</button>`:''}</div>
+    <div class="today-exc-src"><span>「${escHtml(b.title)}」${e.location?' '+escHtml(e.location):''}</span>${total>1?`<button class="ink-btn" onclick="nextExcerpt('${b.id}')">다른 발췌</button>`:''}</div>
   </div>`;
 }
 
