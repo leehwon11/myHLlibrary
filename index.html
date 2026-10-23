@@ -50,6 +50,7 @@
           <button class="sp" data-sv="완독" onclick="setStatusFilter('완독')">✅ 완독</button>
           <button class="sp" data-sv="읽는중" onclick="setStatusFilter('읽는중')">📖 읽는 중</button>
           <button class="sp" data-sv="읽고싶어요" onclick="setStatusFilter('읽고싶어요')">🔖 읽고 싶어요</button>
+          <button class="sp" data-sv="하차" onclick="setStatusFilter('하차')">🚪 하차</button>
           <button class="fav-pill" id="favPill" onclick="toggleFavFilter()">⭐ 즐겨찾기</button>
         </div>
         <select class="sort-select" id="sortSelect" onchange="render()" style="margin-left:auto">
@@ -206,7 +207,15 @@
             <button class="st-opt" data-v="읽고싶어요" onclick="setStatus('읽고싶어요')">🔖 읽고 싶어요</button>
             <button class="st-opt" data-v="읽는중" onclick="setStatus('읽는중')">📖 읽는 중</button>
             <button class="st-opt" data-v="완독" onclick="setStatus('완독')">✅ 완독</button>
+            <button class="st-opt" data-v="하차" onclick="setStatus('하차')">🚪 하차</button>
           </div>
+        </div>
+        <div class="dnf-box" id="dnfFields" style="display:none">
+          <div class="row2">
+            <div class="fg"><label>하차 지점</label><input type="text" id="f-dnf-at" placeholder="예: 52화, 2권 중반"></div>
+            <div class="fg"><label>하차일</label><input type="date" id="f-dnf-date"></div>
+          </div>
+          <div class="fg"><label>하차 이유</label><textarea id="f-dnf-reason" rows="2" placeholder="남주가 선 넘음, 전개가 늘어짐 ..." oninput="autosizeEl(this)"></textarea></div>
         </div>
 
         <div class="sec-label" style="margin-top:2px">날짜</div>

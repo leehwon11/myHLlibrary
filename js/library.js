@@ -10,7 +10,8 @@ function getSortedFiltered(){
     const sm=!currentStatusFilter||b.status===currentStatusFilter;
     const fm=!showFavOnly||!!b.fav;
     const allTags=[...(b.sojaiTags||b.tags||[]),...(b.relTags||b.themes||[])];
-    const qm=!q||[b.title,b.author,...bG,...allTags].join(' ').toLowerCase().includes(q);
+    const excTags=(b.excerpts||[]).flatMap(e=>e.tags||[]);
+    const qm=!q||[b.title,b.author,...bG,...allTags,...excTags].join(' ').toLowerCase().includes(q);
     return gm&&sm&&fm&&qm;
   });
   if(sort==='newest')list.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
@@ -24,7 +25,7 @@ function getSortedFiltered(){
 }
 function renderCard(b,q,isTbrNext){
   const gKey=(b.genre||[])[0]||'기타';const g=getGenre(gKey);
-  const sb=b.status?({완독:'<span class="status-badge sb-완독">✅ 완독</span>',읽는중:'<span class="status-badge sb-읽는중">📖 읽는중</span>',읽고싶어요:'<span class="status-badge sb-읽고싶어요">🔖 읽고싶어요</span>'}[b.status]||''):'';
+  const sb=b.status?({완독:'<span class="status-badge sb-완독">✅ 완독</span>',읽는중:'<span class="status-badge sb-읽는중">📖 읽는중</span>',읽고싶어요:'<span class="status-badge sb-읽고싶어요">🔖 읽고싶어요</span>',하차:'<span class="status-badge sb-하차">🚪 하차</span>'}[b.status]||''):'';
   const ageBadge=b.agerating?`<span class="age-badge age-${b.agerating}">${b.agerating}</span>`:'';
   const allTags=[...(b.sojaiTags||b.tags||[]),...(b.relTags||b.themes||[])];
   const tags=allTags.slice(0,3).map(t=>`<span class="ctag ctag-click" data-tag="${encodeURIComponent(t)}" onclick="event.stopPropagation();searchByTag(decodeURIComponent(this.dataset.tag))">${escHtml(t)}</span>`).join('');
@@ -102,6 +103,7 @@ function openEdit(id){
   document.getElementById('f-platform').value=b.platform||'';const pue=document.getElementById('f-platformurl');if(pue)pue.value=b.platformurl||'';
   rereadData=(b.rereads||[]).map(r=>({...r}));renderRereadList();
   document.getElementById('f-price').value=b.price||'';document.getElementById('f-datebuy').value=b.datebuy||'';document.getElementById('f-datestart').value=b.datestart||'';document.getElementById('f-dateend').value=b.dateend||'';
+  document.getElementById('f-dnf-at').value=b.dnfAt||'';document.getElementById('f-dnf-date').value=b.dnfDate||'';document.getElementById('f-dnf-reason').value=b.dnfReason||'';
 
   currentGenreTags=Array.isArray(b.genre)?[...b.genre]:(b.genre?[b.genre]:[]);renderGenreTags();
   document.getElementById('coverBox').innerHTML=currentCover?`<img src="${currentCover}" alt="">`:'<div class="cover-hint"><span class="ci">🔗</span>아래에<br>이미지 URL을 입력하세요</div>';
@@ -109,14 +111,14 @@ function openEdit(id){
   ['f-summary','f-review','f-memo','f-fl-intro'].forEach(id=>autosizeEl(document.getElementById(id)));
   document.getElementById('editOv').classList.add('open');
 }
-function clearForm(){['f-title','f-author','f-summary','f-review','f-memo','f-platform','f-platformurl','f-price','f-datebuy','f-datestart','f-dateend','f-fl-name','f-fl-age','f-fl-intro'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});rereadData=[];renderRereadList();currentGenreTags=[];renderGenreTags();mlData=[];renderMlAcc();document.getElementById('f-booktype').value='';document.getElementById('f-agerating').value='';document.getElementById('coverBox').innerHTML='<div class="cover-hint"><span class="ci">🔗</span>아래에<br>이미지 URL을 입력하세요</div>';currentCtagsSojai=[];currentCtagsRel=[];currentFlTypeTags=[];renderTagsSojai();renderTagsRel();renderFlTypeTags();updateStarUI();['f-summary','f-review','f-memo','f-fl-intro'].forEach(id=>autosizeEl(document.getElementById(id)));}
+function clearForm(){['f-title','f-author','f-summary','f-review','f-memo','f-platform','f-platformurl','f-price','f-datebuy','f-datestart','f-dateend','f-fl-name','f-fl-age','f-fl-intro','f-dnf-at','f-dnf-date','f-dnf-reason'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});rereadData=[];renderRereadList();currentGenreTags=[];renderGenreTags();mlData=[];renderMlAcc();document.getElementById('f-booktype').value='';document.getElementById('f-agerating').value='';document.getElementById('coverBox').innerHTML='<div class="cover-hint"><span class="ci">🔗</span>아래에<br>이미지 URL을 입력하세요</div>';currentCtagsSojai=[];currentCtagsRel=[];currentFlTypeTags=[];renderTagsSojai();renderTagsRel();renderFlTypeTags();updateStarUI();['f-summary','f-review','f-memo','f-fl-intro'].forEach(id=>autosizeEl(document.getElementById(id)));}
 function closeEdit(){document.getElementById('editOv').classList.remove('open');}
 function removeCover(){currentCover=null;document.getElementById('coverBox').innerHTML='<div class="cover-hint"><span class="ci">🔗</span>아래에<br>이미지 URL을 입력하세요</div>';}
 function setStar(n){currentStar=n;updateStarUI();}
 function updateStarUI(){document.querySelectorAll('.sr-btn').forEach(b=>b.classList.toggle('on',parseInt(b.dataset.v)<=currentStar));const lbl=document.getElementById('starLabel');if(lbl)lbl.textContent=currentStar?STAR_LABELS[currentStar]:'';}
 function renderStarPicker(){const row=document.getElementById('starRow');if(!row)return;row.innerHTML='';for(let i=1;i<=5;i++){const btn=document.createElement('button');btn.className='sr-btn';btn.dataset.v=i;btn.textContent='★';btn.onclick=()=>setStar(currentStar===i?0:i);row.appendChild(btn);}const lbl=document.createElement('span');lbl.id='starLabel';lbl.className='star-label';row.appendChild(lbl);updateStarUI();}// 상태 전환 시 관련 날짜 자동 제안 (읽는중→읽기 시작일 / 완독→완독일)
 function setStatus(v){
-  const t=new Date().toISOString().slice(0,10);
+  const t=localDate();
   if(v==='읽는중'&&currentStatusVal!=='읽는중'){
     const ds=document.getElementById('f-datestart');
     if(ds&&!ds.value){ds.value=t;showToast('읽기 시작일을 오늘('+t+')로 자동 입력했어요.');}
@@ -125,21 +127,42 @@ function setStatus(v){
     const de=document.getElementById('f-dateend');
     if(de&&!de.value){de.value=t;showToast('완독일을 오늘('+t+')로 자동 입력했어요.');}
   }
+  if(v==='하차'&&currentStatusVal!=='하차'){
+    const dd=document.getElementById('f-dnf-date');
+    if(dd&&!dd.value)dd.value=t;
+  }
   currentStatusVal=v;updateStatusUI();
 }
-function updateStatusUI(){document.querySelectorAll('.st-opt').forEach(b=>b.classList.toggle('sel-on',b.dataset.v===currentStatusVal));}
+function updateStatusUI(){
+  document.querySelectorAll('.st-opt').forEach(b=>b.classList.toggle('sel-on',b.dataset.v===currentStatusVal));
+  const dnf=document.getElementById('dnfFields');
+  if(dnf){dnf.style.display=currentStatusVal==='하차'?'flex':'none';autosizeEl(document.getElementById('f-dnf-reason'));}
+}
 
-function addExcerpt(){excerptsData.push({id:uid(),text:'',location:'',reason:'',open:true});renderExcerpts();}
+const EXC_SPEAKERS=[{v:'남주',label:'💙 남주'},{v:'여주',label:'🩷 여주'},{v:'서브남',label:'🩵 서브남'},{v:'기타',label:'💬 기타'}];
+const EXC_QUICK_TAGS=['#명대사','#설렘','#고백','#후회','#집착','#눈물','#웃김','#명장면'];
+function excSpeakerLabel(v){return(EXC_SPEAKERS.find(s=>s.v===v)||{}).label||'';}
+function addExcerpt(){excerptsData.push({id:uid(),text:'',location:'',reason:'',speaker:'',tags:[],open:true});renderExcerpts();}
+function setExcerptSpeaker(id,v){const e=excerptsData.find(x=>x.id===id);if(!e)return;e.speaker=e.speaker===v?'':v;renderExcerpts();}
+function addExcerptTag(id,val){const e=excerptsData.find(x=>x.id===id);if(!e)return;let v=(val||'').trim();if(!v)return;if(!v.startsWith('#'))v='#'+v;e.tags=e.tags||[];if(!e.tags.includes(v))e.tags.push(v);renderExcerpts();}
+function removeExcerptTag(id,tag){const e=excerptsData.find(x=>x.id===id);if(!e)return;e.tags=(e.tags||[]).filter(t=>t!==tag);renderExcerpts();}
 function removeExcerpt(id){excerptsData=excerptsData.filter(e=>e.id!==id);renderExcerpts();}
 function toggleExcerpt(id){const e=excerptsData.find(x=>x.id===id);if(e)e.open=!e.open;renderExcerpts();}
 function syncExcerpt(id,field,val){const e=excerptsData.find(x=>x.id===id);if(e)e[field]=val;}
-function renderExcerpts(){const wrap=document.getElementById('excerptsWrap');if(!excerptsData.length){wrap.innerHTML='';return;}wrap.innerHTML=excerptsData.map((e,idx)=>`<div class="excerpt-item"><div class="excerpt-head" onclick="toggleExcerpt('${e.id}')"><span class="exc-arrow ${e.open?'open':''}">&#9654;</span><span style="font-size:11px;color:var(--acc);font-weight:600">발췌 ${idx+1}</span><span class="exc-summary">${e.text?escHtml(e.text.slice(0,60))+'…':'(내용 없음)'}</span><button class="exc-del" onclick="event.stopPropagation();removeExcerpt('${e.id}')">✕</button></div><div class="excerpt-body ${e.open?'open':''}"><div class="fg"><label>위치</label><input type="text" value="${escHtml(e.location||'')}" placeholder="예: 2권 147p" oninput="syncExcerpt('${e.id}','location',this.value)"></div><div class="fg"><label>발췌 문장</label><textarea rows="3" placeholder="발췌할 구절..." oninput="syncExcerpt('${e.id}','text',this.value);autosizeEl(this)">${escHtml(e.text||'')}</textarea></div><div class="fg"><label>발췌 이유</label><textarea rows="2" placeholder="이 구절을 고른 이유..." oninput="syncExcerpt('${e.id}','reason',this.value);autosizeEl(this)">${escHtml(e.reason||'')}</textarea></div></div></div>`).join('');wrap.querySelectorAll('textarea').forEach(autosizeEl);}
+function renderExcerpts(){const wrap=document.getElementById('excerptsWrap');if(!excerptsData.length){wrap.innerHTML='';return;}wrap.innerHTML=excerptsData.map((e,idx)=>`<div class="excerpt-item"><div class="excerpt-head" onclick="toggleExcerpt('${e.id}')"><span class="exc-arrow ${e.open?'open':''}">&#9654;</span><span style="font-size:11px;color:var(--acc);font-weight:600">발췌 ${idx+1}</span><span class="exc-summary">${e.text?escHtml(e.text.slice(0,60))+'…':'(내용 없음)'}</span><button class="exc-del" onclick="event.stopPropagation();removeExcerpt('${e.id}')">✕</button></div><div class="excerpt-body ${e.open?'open':''}"><div class="fg"><label>위치</label><input type="text" value="${escHtml(e.location||'')}" placeholder="예: 2권 147p" oninput="syncExcerpt('${e.id}','location',this.value)"></div><div class="fg"><label>발췌 문장</label><textarea rows="3" placeholder="발췌할 구절..." oninput="syncExcerpt('${e.id}','text',this.value);autosizeEl(this)">${escHtml(e.text||'')}</textarea></div><div class="fg"><label>발췌 이유</label><textarea rows="2" placeholder="이 구절을 고른 이유..." oninput="syncExcerpt('${e.id}','reason',this.value);autosizeEl(this)">${escHtml(e.reason||'')}</textarea></div>${renderExcerptMetaEditor(e)}</div></div>`).join('');wrap.querySelectorAll('textarea').forEach(autosizeEl);}
+function renderExcerptMetaEditor(e){
+  const tags=e.tags||[];
+  const speakerBtns=EXC_SPEAKERS.map(s=>`<button type="button" class="exc-speaker-opt${e.speaker===s.v?' on':''}" onclick="setExcerptSpeaker('${e.id}','${s.v}')">${s.label}</button>`).join('');
+  const selTags=tags.map(t=>`<span class="stag">${escHtml(t)} <button class="stag-del" data-tag="${encodeURIComponent(t)}" onclick="removeExcerptTag('${e.id}',decodeURIComponent(this.dataset.tag))">✕</button></span>`).join('');
+  const quick=EXC_QUICK_TAGS.filter(t=>!tags.includes(t)).map(t=>`<button type="button" class="quick-tag-chip" data-tag="${encodeURIComponent(t)}" onclick="addExcerptTag('${e.id}',decodeURIComponent(this.dataset.tag))">+ ${escHtml(t)}</button>`).join('');
+  return`<div class="fg"><label>누구의 대사?</label><div class="exc-speaker-row">${speakerBtns}</div></div><div class="fg"><label>발췌 태그</label><div class="ctag-wrap"><div class="ctag-input-row"><input type="text" placeholder="#명대사, #설렘 ..." onkeydown="if(event.key==='Enter'){event.preventDefault();addExcerptTag('${e.id}',this.value);}"><button class="ctag-add-btn" onclick="addExcerptTag('${e.id}',this.previousElementSibling.value)">+</button></div>${quick?`<div class="quick-tags"><span class="quick-tags-label">빠른 선택</span>${quick}</div>`:''}<div class="selected-tags">${selTags}</div></div></div>`;
+}
 function saveBook(){
   try{
     const title=document.getElementById('f-title').value.trim();if(!title){showToast('제목을 입력해주세요.');return;}
     const genreArr=currentGenreTags.map(t=>t.trim()).filter(Boolean);
-    const clean=excerptsData.filter(e=>e.text.trim()).map(({id,text,location,reason})=>({id,text:text.trim(),location:location.trim(),reason:reason.trim()}));
-    const bookData={id:editId||uid(),title,author:document.getElementById('f-author').value.trim(),genre:genreArr,booktype:document.getElementById('f-booktype').value,agerating:document.getElementById('f-agerating').value,platform:document.getElementById('f-platform').value.trim(),platformurl:document.getElementById('f-platformurl')?.value.trim()||'',rereads:rereadData.map(r=>({...r})),price:Number(document.getElementById('f-price').value)||0,status:currentStatusVal,sojaiTags:[...currentCtagsSojai],relTags:[...currentCtagsRel],flTypeTags:[...currentFlTypeTags],moods:[...currentMoods],rating:currentStar,summary:document.getElementById('f-summary').value.trim(),review:document.getElementById('f-review').value.trim(),memo:document.getElementById('f-memo')?.value.trim()||'',excerpts:clean,cover:currentCover,ml:mlData.filter(m=>m.name||m.age||(m.typeTags&&m.typeTags.length)||m.intro).map(m=>({name:m.name||'',age:m.age||'',typeTags:m.typeTags||[],intro:m.intro||'',sub:!!m.sub})),fl:{name:document.getElementById('f-fl-name').value.trim(),age:document.getElementById('f-fl-age').value.trim(),typeTags:[...currentFlTypeTags],intro:document.getElementById('f-fl-intro')?.value.trim()||''},datebuy:document.getElementById('f-datebuy').value,datestart:document.getElementById('f-datestart').value,dateend:document.getElementById('f-dateend').value,updatedAt:new Date().toISOString()};
+    const clean=excerptsData.filter(e=>e.text.trim()).map(({id,text,location,reason,speaker,tags})=>({id,text:text.trim(),location:(location||'').trim(),reason:(reason||'').trim(),speaker:speaker||'',tags:tags||[]}));
+    const bookData={id:editId||uid(),title,author:document.getElementById('f-author').value.trim(),genre:genreArr,booktype:document.getElementById('f-booktype').value,agerating:document.getElementById('f-agerating').value,platform:document.getElementById('f-platform').value.trim(),platformurl:document.getElementById('f-platformurl')?.value.trim()||'',rereads:rereadData.map(r=>({...r})),price:Number(document.getElementById('f-price').value)||0,status:currentStatusVal,sojaiTags:[...currentCtagsSojai],relTags:[...currentCtagsRel],flTypeTags:[...currentFlTypeTags],moods:[...currentMoods],rating:currentStar,summary:document.getElementById('f-summary').value.trim(),review:document.getElementById('f-review').value.trim(),memo:document.getElementById('f-memo')?.value.trim()||'',excerpts:clean,cover:currentCover,ml:mlData.filter(m=>m.name||m.age||(m.typeTags&&m.typeTags.length)||m.intro).map(m=>({name:m.name||'',age:m.age||'',typeTags:m.typeTags||[],intro:m.intro||'',sub:!!m.sub})),fl:{name:document.getElementById('f-fl-name').value.trim(),age:document.getElementById('f-fl-age').value.trim(),typeTags:[...currentFlTypeTags],intro:document.getElementById('f-fl-intro')?.value.trim()||''},datebuy:document.getElementById('f-datebuy').value,datestart:document.getElementById('f-datestart').value,dateend:document.getElementById('f-dateend').value,dnfAt:document.getElementById('f-dnf-at').value.trim(),dnfDate:document.getElementById('f-dnf-date').value,dnfReason:document.getElementById('f-dnf-reason').value.trim(),updatedAt:new Date().toISOString()};
     if(editId){const idx=books.findIndex(b=>b.id===editId);if(idx===-1){showToast('저장할 책을 찾을 수 없어요.');return;}bookData.createdAt=books[idx].createdAt||bookData.updatedAt;bookData.fav=books[idx].fav||false;books[idx]=bookData;}else{bookData.createdAt=bookData.updatedAt;books.unshift(bookData);}
     saveData().then(()=>{render();closeEdit();showToast(editId?'수정되었어요!':'책이 추가되었어요!');}).catch(e=>{console.error('saveBook catch:',e);showToast('저장 중 오류가 발생했어요: '+e.message);});
   }catch(e){
@@ -163,10 +186,10 @@ function getSimilarBooks(b){
 function openDetail(id){
   const b=books.find(x=>x.id===id);if(!b)return;
   const g=getGenre((b.genre||[])[0]);
-  const statusLabels={완독:'✅ 완독',읽는중:'📖 읽는 중',읽고싶어요:'🔖 읽고 싶어요'};
+  const statusLabels={완독:'✅ 완독',읽는중:'📖 읽는 중',읽고싶어요:'🔖 읽고 싶어요',하차:'🚪 하차'};
   const sbl=statusLabels[b.status]||b.status||'';
   const ageBadge=b.agerating?`<span class="age-badge age-${b.agerating}">${b.agerating}</span>`:'';
-  const statusStyle={완독:'background:var(--green-bg);color:var(--green)',읽는중:'background:var(--amber-bg);color:var(--amber)',읽고싶어요:'background:var(--blue-bg);color:var(--blue)'}[b.status]||'background:var(--bg2);color:var(--txt3)';
+  const statusStyle={완독:'background:var(--green-bg);color:var(--green)',읽는중:'background:var(--amber-bg);color:var(--amber)',읽고싶어요:'background:var(--blue-bg);color:var(--blue)',하차:'background:var(--warn-bg);color:var(--warn)'}[b.status]||'background:var(--bg2);color:var(--txt3)';
   const allTags=[...(b.sojaiTags||b.tags||[]),...(b.relTags||b.themes||[])];
   // TOP
   const coverHtml=b.cover?`<img src="${b.cover}" alt="" style="width:100%;height:100%;object-fit:cover;display:block">`:`<div class="det-cover-ph"><span class="ico">📖</span><span style="font-size:14px;font-weight:600;text-align:center">${escHtml(b.title)}</span></div>`;
@@ -183,18 +206,22 @@ function openDetail(id){
   const mlArr=Array.isArray(b.ml)?b.ml:(b.ml&&b.ml.name?[b.ml]:[]);
   const mainMl=mlArr.filter(m=>!m.sub),subMl=mlArr.filter(m=>m.sub);
   const fl=b.fl;
-  if(mlArr.length||fl){
+  if(mlArr.length||(fl&&fl.name)){
     const mlCards=mainMl.map(m=>`<div class="lead-detail-card"><div class="lead-detail-label ml">💙 남주</div><div class="lead-detail-name">${escHtml(m.name||'이름 미입력')}</div>${m.age?`<div class="lead-detail-age">${escHtml(m.age)}</div>`:''}${m.typeTags&&m.typeTags.length?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">${m.typeTags.map(t=>`<span class="ctag-detail" style="font-size:11px">${escHtml(t)}</span>`).join('')}</div>`:''}${m.intro?`<p style="font-size:12px;color:var(--txt2);margin-top:8px;line-height:1.7">${escHtml(m.intro)}</p>`:''}</div>`).join('');
     const flCard=fl&&fl.name?`<div class="lead-detail-card"><div class="lead-detail-label fl">🩷 여주</div><div class="lead-detail-name">${escHtml(fl.name)}</div>${fl.age?`<div class="lead-detail-age">${escHtml(fl.age)}</div>`:''}${fl.typeTags&&fl.typeTags.length?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">${fl.typeTags.map(t=>`<span class="ctag-detail" style="font-size:11px">${escHtml(t)}</span>`).join('')}</div>`:''}${fl.intro?`<p style="font-size:12px;color:var(--txt2);margin-top:8px;line-height:1.7">${escHtml(fl.intro)}</p>`:''}</div>`:'';
     const subMlHtml=subMl.length?`<div class="lead-sub-section"><div class="lead-sub-title">🩵 서브남</div>${subMl.map(m=>`<div class="lead-sub-acc"><div class="lead-sub-head" onclick="this.nextElementSibling.classList.toggle('open');this.querySelector('.lead-sub-arrow').classList.toggle('open')"><span class="lead-sub-arrow">▶</span><span style="font-size:12px;font-weight:600;color:var(--acc2)">${escHtml(m.name||'이름 미입력')}</span>${m.age?`<span style="font-size:11px;color:var(--txt4);">${escHtml(m.age)}</span>`:''}</div><div class="lead-sub-body">${m.typeTags&&m.typeTags.length?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">${m.typeTags.map(t=>`<span class="ctag-detail" style="font-size:11px">${escHtml(t)}</span>`).join('')}</div>`:''}${m.intro?`<p style="font-size:12px;color:var(--txt2);line-height:1.7">${escHtml(m.intro)}</p>`:''}</div></div>`).join('')}</div>`:'';
     contentHtml+=`<div class="det-section"><h3>주인공 정보</h3><div class="lead-detail-grid">${mlCards}${flCard}</div>${subMlHtml}</div>`;
+  }
+  if(b.status==='하차'&&(b.dnfAt||b.dnfDate||b.dnfReason)){
+    const meta=[b.dnfAt?`<span class="mchip">📍 ${escHtml(b.dnfAt)}에서 하차</span>`:'',b.dnfDate?`<span class="mchip">🗓 ${b.dnfDate}</span>`:''].filter(Boolean).join('');
+    contentHtml+=`<div class="det-section"><h3>🚪 하차 기록</h3><div class="dnf-detail">${meta?`<div class="det-meta">${meta}</div>`:''}${b.dnfReason?`<p style="white-space:pre-wrap">${escHtml(b.dnfReason)}</p>`:''}</div></div>`;
   }
   // 줄거리/총평 (주인공 다음)
   if(b.summary)contentHtml+=`<div class="det-section"><h3>줄거리</h3><p style="white-space:pre-wrap">${escHtml(b.summary)}</p></div>`;
   if(b.review)contentHtml+=`<div class="det-section"><h3>총평</h3><p style="white-space:pre-wrap">${escHtml(b.review)}</p></div>`;
   if(b.memo)contentHtml+=`<div class="det-section"><h3>📝 메모 <span style="font-size:10px;color:var(--txt4);font-weight:400">(비공개)</span></h3><p style="white-space:pre-wrap;background:var(--amber-bg);border:1px solid rgba(176,106,0,.15);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--txt2);line-height:1.8">${escHtml(b.memo)}</p></div>`;
   // 발췌
-  if(b.excerpts&&b.excerpts.length){const excHtml=b.excerpts.map((e,i)=>`<div class="exc-quote-block"><div class="exc-quote-head" onclick="this.nextElementSibling.classList.toggle('open')"><span class="exc-q-label">발췌 ${i+1}</span><span class="exc-q-preview">${escHtml(e.text.slice(0,50))}${e.text.length>50?'…':''}</span></div><div class="exc-quote-body"><div class="exc-q-loc">${e.location?'📍 '+escHtml(e.location):''}</div><div class="exc-q-text">${escHtml(e.text)}</div>${e.reason?`<div class="exc-q-reason">💭 ${escHtml(e.reason)}</div>`:''}</div></div>`).join('');contentHtml+=`<div class="det-section"><h3>발췌</h3>${excHtml}</div>`;}
+  if(b.excerpts&&b.excerpts.length){const excHtml=b.excerpts.map((e,i)=>{const spk=e.speaker?`<span class="exc-q-speaker">${excSpeakerLabel(e.speaker)}</span>`:'';const tg=(e.tags||[]).map(t=>`<span class="ctag-detail ctag-click" style="font-size:11px" data-tag="${encodeURIComponent(t)}" onclick="const tg=decodeURIComponent(this.dataset.tag);closeDetail();setTimeout(()=>searchByTag(tg),50)">${escHtml(t)}</span>`).join('');return`<div class="exc-quote-block"><div class="exc-quote-head" onclick="this.nextElementSibling.classList.toggle('open')"><span class="exc-q-label">발췌 ${i+1}</span>${spk}<span class="exc-q-preview">${escHtml(e.text.slice(0,50))}${e.text.length>50?'…':''}</span></div><div class="exc-quote-body"><div class="exc-q-loc">${e.location?'📍 '+escHtml(e.location):''}</div><div class="exc-q-text">${escHtml(e.text)}</div>${e.reason?`<div class="exc-q-reason">💭 ${escHtml(e.reason)}</div>`:''}${tg?`<div style="display:flex;flex-wrap:wrap;gap:4px">${tg}</div>`:''}</div></div>`;}).join('');contentHtml+=`<div class="det-section"><h3>발췌</h3>${excHtml}</div>`;}
   // 재독 기록
   if(b.rereads&&b.rereads.length){const rHtml=b.rereads.map(r=>`<div class="reread-item"><span class="reread-num">제${r.nth||1}회독</span><span style="color:var(--txt3)">${r.date||''}</span>${r.note?`<span style="font-size:12px;color:var(--txt2)">${escHtml(r.note)}</span>`:''}</div>`).join('');contentHtml+=`<div class="det-section"><h3>재독 기록</h3><div class="reread-list">${rHtml}</div></div>`;}
   // 비슷한 책 추천
@@ -210,6 +237,6 @@ function openDetail(id){
 function closeDetail(){document.getElementById('detailOv').classList.remove('open');}
 
 // ══════════════ 재독 기록 ══════════════
-function addReread(){const nth=rereadData.length+1;rereadData.push({id:uid(),nth,date:new Date().toISOString().slice(0,10),note:''});renderRereadList();}
+function addReread(){const nth=rereadData.length+1;rereadData.push({id:uid(),nth,date:localDate(),note:''});renderRereadList();}
 function removeReread(id){rereadData=rereadData.filter(r=>r.id!==id);rereadData.forEach((r,i)=>{r.nth=i+1;});renderRereadList();}
 function renderRereadList(){const el=document.getElementById('rereadList');if(!el)return;el.innerHTML=rereadData.map(r=>`<div class="reread-item"><span class="reread-num">제${r.nth}회독</span><input type="date" value="${r.date||''}" style="flex:0 0 120px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 7px;font-family:var(--font-body);font-size:12px;color:var(--txt)" oninput="rereadData.find(x=>x.id==='${r.id}').date=this.value"><input type="text" value="${escHtml(r.note||'')}" placeholder="메모" style="flex:1;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 7px;font-family:var(--font-body);font-size:12px;color:var(--txt)" oninput="rereadData.find(x=>x.id==='${r.id}').note=this.value"><button class="reread-del" onclick="removeReread('${r.id}')">✕</button></div>`).join('');}

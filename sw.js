@@ -1,4 +1,4 @@
-const CACHE='library-v1';
+const CACHE='library-v2';
 const ASSETS=['./','./index.html','./css/style.css','./js/app.js','./js/library.js','./js/stats.js','./js/calendar.js','./manifest.json'];
 
 self.addEventListener('install',e=>{
@@ -11,6 +11,7 @@ self.addEventListener('activate',e=>{
 
 self.addEventListener('fetch',e=>{
   if(e.request.method!=='GET') return;
+  if(new URL(e.request.url).origin!==self.location.origin) return;
   e.respondWith(
     fetch(e.request).then(res=>{
       if(res.ok){
@@ -18,6 +19,6 @@ self.addEventListener('fetch',e=>{
         caches.open(CACHE).then(c=>c.put(e.request,clone));
       }
       return res;
-    }).catch(()=>caches.match(e.request))
+    }).catch(()=>caches.match(e.request).then(r=>r||Response.error()))
   );
 });

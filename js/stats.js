@@ -7,6 +7,7 @@ function renderStats(){
   const done=books.filter(b=>b.status==='완독');
   const reading=books.filter(b=>b.status==='읽는중');
   const wish=books.filter(b=>b.status==='읽고싶어요');
+  const dnf=books.filter(b=>b.status==='하차');
   const avgR=done.length?((done.reduce((s,b)=>s+(b.rating||0),0)/done.length).toFixed(1)):'0.0';
   const year=new Date().getFullYear();
   const doneThisYear=done.filter(b=>b.dateend&&b.dateend.startsWith(String(year)));
@@ -20,6 +21,7 @@ function renderStats(){
     <div class="stat-box"><div class="stat-num">${done.length}</div><div class="stat-label">완독</div></div>
     <div class="stat-box"><div class="stat-num">${reading.length}</div><div class="stat-label">읽는중</div></div>
     <div class="stat-box"><div class="stat-num">${wish.length}</div><div class="stat-label">읽고싶어요</div></div>
+    ${dnf.length?`<div class="stat-box"><div class="stat-num">${dnf.length}</div><div class="stat-label">하차</div></div>`:''}
     <div class="stat-box"><div class="stat-num">${avgR}</div><div class="stat-label">평균 별점</div></div>
   </div>`;
 
@@ -189,7 +191,7 @@ function renderHeatmap(doneBooks){
       const dayOffset=w*7+d-startDow;
       if(dayOffset<0||dayOffset>=totalDays){cells+='<div></div>';continue;}
       const date=new Date(year,0,1+dayOffset);
-      const k=date.toISOString().slice(0,10);
+      const k=localDate(date);
       const cnt=dateMap[k]||0;
       const lv=cnt===0?'':cnt===1?'lv1':cnt===2?'lv2':cnt===3?'lv3':'lv4';
       const tip=`${date.getMonth()+1}월 ${date.getDate()}일${cnt?' — 완독 '+cnt+'권':''}`;

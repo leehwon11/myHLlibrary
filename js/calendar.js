@@ -5,7 +5,7 @@ let _calMonth=new Date().getMonth();
 
 function renderCalendar(){
   const today=new Date();
-  const todayStr=today.toISOString().slice(0,10);
+  const todayStr=localDate(today);
   const year=_calYear;
   const month=_calMonth;
   const firstDay=new Date(year,month,1).getDay();
@@ -49,8 +49,8 @@ function renderCalendar(){
     if(isStreakDay){
       const prevDate=new Date(year,month,d-1);
       const nextDate=new Date(year,month,d+1);
-      const prevIn=streakDates.has(prevDate.toISOString().slice(0,10));
-      const nextIn=streakDates.has(nextDate.toISOString().slice(0,10));
+      const prevIn=streakDates.has(localDate(prevDate));
+      const nextIn=streakDates.has(localDate(nextDate));
       if(prevIn&&nextIn) cls+=' streak-mid';
       else if(prevIn) cls+=' streak-end';
       else if(nextIn) cls+=' streak-start';
@@ -94,23 +94,23 @@ function calcStreaks(){
 
   const today=new Date();
   today.setHours(0,0,0,0);
-  const todayStr=today.toISOString().slice(0,10);
+  const todayStr=localDate(today);
 
   let currentStreak=0;
   const d=new Date(today);
   if(!dateSet.has(todayStr)){
     d.setDate(d.getDate()-1);
-    if(!dateSet.has(d.toISOString().slice(0,10))){
+    if(!dateSet.has(localDate(d))){
       currentStreak=0;
     }else{
       currentStreak=1;
       d.setDate(d.getDate()-1);
-      while(dateSet.has(d.toISOString().slice(0,10))){currentStreak++;d.setDate(d.getDate()-1);}
+      while(dateSet.has(localDate(d))){currentStreak++;d.setDate(d.getDate()-1);}
     }
   }else{
     currentStreak=1;
     d.setDate(d.getDate()-1);
-    while(dateSet.has(d.toISOString().slice(0,10))){currentStreak++;d.setDate(d.getDate()-1);}
+    while(dateSet.has(localDate(d))){currentStreak++;d.setDate(d.getDate()-1);}
   }
 
   const sorted=[...dateSet].sort();
