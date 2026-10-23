@@ -38,6 +38,15 @@ body.dark mark.search-hl{background:#a07800;color:#fff8dd}
 .sb-완독{background:rgba(46,125,82,.15);color:var(--green);border:1px solid rgba(46,125,82,.3)}
 .sb-읽는중{background:rgba(176,106,0,.15);color:var(--amber);border:1px solid rgba(176,106,0,.3)}
 .sb-읽고싶어요{background:rgba(26,95,160,.15);color:var(--blue);border:1px solid rgba(26,95,160,.3)}
+.sb-하차{background:rgba(176,64,64,.15);color:var(--warn);border:1px solid rgba(176,64,64,.3)}
+.dnf-box{flex-direction:column;gap:8px;background:var(--warn-bg);border:1px solid rgba(176,64,64,.2);border-radius:8px;padding:12px}
+.dnf-detail{display:flex;flex-direction:column;gap:8px;background:var(--warn-bg);border:1px solid rgba(176,64,64,.15);border-radius:8px;padding:10px 14px}
+.dnf-detail p{font-size:13px;color:var(--txt2);line-height:1.8}
+.exc-speaker-row{display:flex;flex-wrap:wrap;gap:6px}
+.exc-speaker-opt{font-family:var(--font-body);font-size:12px;padding:4px 10px;border-radius:20px;border:1px solid var(--line);background:var(--white);color:var(--txt3);cursor:pointer;transition:all .15s}
+.exc-speaker-opt:hover{border-color:var(--line2);color:var(--txt2)}
+.exc-speaker-opt.on{background:var(--acc-bg);color:var(--acc);border-color:var(--acc2);font-weight:600}
+.exc-q-speaker{font-size:10px;font-weight:600;padding:1px 7px;border-radius:10px;background:var(--bg2);color:var(--txt2);border:1px solid var(--line);flex-shrink:0}
 
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(186px,1fr));gap:16px}
 .book-card{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:transform .18s,box-shadow .18s,border-color .18s;position:relative}

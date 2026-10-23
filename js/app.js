@@ -150,6 +150,7 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
 function getGenre(name){const color=GENRE_COLOR_MAP[name]||'#808080';return{name:name||'기타',color};}
 function hexToRgba(hex,a){if(!hex||hex.length<7)return`rgba(128,128,128,${a})`;return`rgba(${parseInt(hex.slice(1,3),16)},${parseInt(hex.slice(3,5),16)},${parseInt(hex.slice(5,7),16)},${a})`;}
 function fmtPrice(n){return n?Number(n).toLocaleString('ko-KR')+'원':'-';}
+function localDate(d=new Date()){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function daysBetween(a,b){if(!a||!b)return null;const diff=new Date(b)-new Date(a);return diff>0?Math.round(diff/86400000):null;}
 function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function highlight(text,q){if(!q||!text)return escHtml(text||'');const esc=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');return escHtml(text).replace(new RegExp(esc,'gi'),m=>`<mark class="search-hl">${escHtml(m)}</mark>`);}
@@ -323,7 +324,7 @@ function _drawCardText(ctx,b,th,W,H,P,cY,cH){
 
 
 // ══════════════ JSON ══════════════
-function exportJSON(){const data={exportVersion:6,exportedAt:new Date().toISOString(),libName:localStorage.getItem('myLib_libName')||'나의 서재',libEmoji:localStorage.getItem('myLib_libEmoji')||'📚',books};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`mylibrary-v6-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);showToast('내보내기 완료! ✅');}
+function exportJSON(){const data={exportVersion:6,exportedAt:new Date().toISOString(),libName:localStorage.getItem('myLib_libName')||'나의 서재',libEmoji:localStorage.getItem('myLib_libEmoji')||'📚',books};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`mylibrary-v6-${localDate()}.json`;a.click();URL.revokeObjectURL(a.href);showToast('내보내기 완료! ✅');}
 function openJsonMenu(){document.getElementById('jsonOv').classList.add('open');}
 function closeJsonMenu(){document.getElementById('jsonOv').classList.remove('open');}
 let _pendingImportData=null;
