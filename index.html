@@ -4,57 +4,65 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>나의 서재</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;600&family=Noto+Sans+KR:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Serif+KR:wght@400;600&family=Noto+Sans+KR:wght@400;500;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-<header>
-  <div class="logo" id="logoEl" onclick="openLibName()" title="서재 이름 변경">
-    <span id="logoEmoji">📚</span>
-    <span id="logoName">나의 <em>서재</em></span>
-  </div>
-  <div class="header-spacer"></div>
-  <div class="book-chip" id="bookChip">0권</div>
-  <div class="header-icons" id="headerIcons">
-    <button class="random-btn" onclick="openRandomBook()" title="오늘의 책">🎲</button>
-    <button class="settings-btn" onclick="openSettings()" title="테마/폰트">⚙</button>
-    <button class="theme-btn" id="themeBtn" onclick="toggleDark()" title="다크 모드">🌙</button>
-    <button class="hbtn" onclick="openJsonMenu()">⇅</button>
-  </div>
-  <div style="position:relative">
-    <button class="hbtn more-btn" id="moreBtn" onclick="toggleMoreMenu()" title="더보기" style="display:none">⋯</button>
-    <div class="more-menu" id="moreMenu">
-      <button class="more-menu-item" onclick="closeMoreMenu();openRandomBook()">🎲 오늘의 책</button>
-      <button class="more-menu-item" onclick="closeMoreMenu();openSettings()">⚙ 테마 / 폰트</button>
-      <button class="more-menu-item" onclick="closeMoreMenu();toggleDark()">🌙 다크 모드</button>
-      <button class="more-menu-item" onclick="closeMoreMenu();openJsonMenu()">⇅ 데이터 내보내기/불러오기</button>
+<header class="site-header">
+  <div class="hd-inner">
+    <div class="logo" id="logoEl" onclick="openLibName()" title="서재 이름 변경">
+      <span id="logoEmoji">📚</span>
+      <span id="logoName">나의 <em>서재</em></span>
+    </div>
+    <nav class="main-nav" aria-label="페이지">
+      <button class="nav-tab active" data-page="home" onclick="switchPage('home')">홈</button>
+      <button class="nav-tab" data-page="library" onclick="switchPage('library')">책장</button>
+      <button class="nav-tab" data-page="excerpts" onclick="switchPage('excerpts')">발췌함</button>
+      <button class="nav-tab" data-page="stats" onclick="switchPage('stats')">통계</button>
+      <button class="nav-tab" data-page="ledger" onclick="switchPage('ledger')">가계부</button>
+      <button class="nav-tab" data-page="calendar" onclick="switchPage('calendar')">캘린더</button>
+    </nav>
+    <div class="hd-actions">
+      <div class="header-icons">
+        <button class="icon-btn" onclick="openRandomBook()" title="오늘의 책" aria-label="오늘의 책">🎲</button>
+        <button class="icon-btn" onclick="openSettings()" title="테마/폰트" aria-label="테마와 폰트 설정">⚙</button>
+        <button class="icon-btn" id="themeBtn" onclick="toggleDark()" title="다크 모드" aria-label="다크 모드">🌙</button>
+        <button class="icon-btn" onclick="openJsonMenu()" title="데이터 내보내기/불러오기" aria-label="데이터 내보내기/불러오기">⇅</button>
+      </div>
+      <div style="position:relative">
+        <button class="icon-btn more-btn" id="moreBtn" onclick="toggleMoreMenu()" aria-label="더보기">⋯</button>
+        <div class="more-menu" id="moreMenu">
+          <button class="more-menu-item" onclick="closeMoreMenu();openRandomBook()">🎲 오늘의 책</button>
+          <button class="more-menu-item" onclick="closeMoreMenu();openSettings()">⚙ 테마 / 폰트</button>
+          <button class="more-menu-item" onclick="closeMoreMenu();toggleDark()">🌙 다크 모드</button>
+          <button class="more-menu-item" onclick="closeMoreMenu();openJsonMenu()">⇅ 데이터 내보내기/불러오기</button>
+        </div>
+      </div>
+      <button class="hbtn primary" onclick="openAdd()">+ 책 추가</button>
     </div>
   </div>
-  <button class="hbtn primary" onclick="openAdd()">+ 추가</button>
 </header>
-<div class="nav-tabs">
-  <button class="nav-tab active" onclick="switchPage('library',this)">📚 서재</button>
-  <button class="nav-tab" onclick="switchPage('stats',this)">📊 통계</button>
-  <button class="nav-tab" onclick="switchPage('ledger',this)">💸 가계부</button>
-  <button class="nav-tab" onclick="switchPage('calendar',this)">📅 완독 캘린더</button>
-</div>
-<div class="main">
-  <div class="page active" id="page-library">
-    <div class="toolbar">
-      <div class="toolbar-row">
-        <div class="search-wrap"><span class="search-icon">🔍</span><input type="text" id="searchInput" placeholder="제목, 작가, 태그 검색" oninput="render()"></div>
+<main class="main">
+  <div class="page active" id="page-home"><div id="homeContent" style="display:contents"></div></div>
+
+  <div class="page" id="page-library">
+    <div class="page-head">
+      <h1 class="page-title">책장<span class="page-count" id="shelfCount"></span></h1>
+      <div class="search-wrap"><span class="search-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg></span><input type="text" id="searchInput" placeholder="제목, 작가, 태그 검색" aria-label="책장 검색" oninput="render()"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="status-tabs" id="statusPillsWrap">
+        <button class="sp sp-on" data-sv="" onclick="setStatusFilter('')">전체<span class="sp-count"></span></button>
+        <button class="sp" data-sv="완독" onclick="setStatusFilter('완독')">완독<span class="sp-count"></span></button>
+        <button class="sp" data-sv="읽는중" onclick="setStatusFilter('읽는중')">읽는 중<span class="sp-count"></span></button>
+        <button class="sp" data-sv="읽고싶어요" onclick="setStatusFilter('읽고싶어요')">읽고 싶어요<span class="sp-count"></span></button>
+        <button class="sp" data-sv="하차" onclick="setStatusFilter('하차')">하차<span class="sp-count"></span></button>
       </div>
-      <div class="toolbar-row">
-        <div id="statusPillsWrap" style="display:flex;flex-wrap:wrap;gap:6px">
-          <button class="sp sp-on" data-sv="" onclick="setStatusFilter('')">전체</button>
-          <button class="sp" data-sv="완독" onclick="setStatusFilter('완독')">✅ 완독</button>
-          <button class="sp" data-sv="읽는중" onclick="setStatusFilter('읽는중')">📖 읽는 중</button>
-          <button class="sp" data-sv="읽고싶어요" onclick="setStatusFilter('읽고싶어요')">🔖 읽고 싶어요</button>
-          <button class="sp" data-sv="하차" onclick="setStatusFilter('하차')">🚪 하차</button>
-          <button class="fav-pill" id="favPill" onclick="toggleFavFilter()">⭐ 즐겨찾기</button>
-        </div>
-        <select class="sort-select" id="sortSelect" onchange="render()" style="margin-left:auto">
+      <div class="shelf-tools">
+        <div class="genre-chips" id="genreChips"></div>
+        <button class="pill fav-pill" id="favPill" onclick="toggleFavFilter()">★ 즐겨찾기</button>
+        <select class="sort-select" id="sortSelect" onchange="render()" aria-label="정렬">
           <option value="newest">최신 등록순</option>
           <option value="oldest">오래된 순</option>
           <option value="rating-desc">별점 높은 순</option>
@@ -63,57 +71,54 @@
           <option value="custom">사용자 지정 순서</option>
         </select>
       </div>
+      <div class="grid" id="bookGrid"></div>
     </div>
-    <div class="grid" id="bookGrid"></div>
   </div>
-  <div class="page" id="page-stats">
-    <div id="statsContent"></div>
-  </div>
-  <div class="page" id="page-ledger">
-    <div id="ledgerContent"></div>
-  </div>
+
+  <div class="page" id="page-excerpts"><div id="excerptsPage" style="display:contents"></div></div>
+  <div class="page" id="page-detail"><div id="detailPage" style="display:contents"></div></div>
+  <div class="page" id="page-stats"><div id="statsContent" style="display:contents"></div></div>
+  <div class="page" id="page-ledger"><div id="ledgerContent"></div></div>
+
   <div class="page" id="page-calendar">
-    <div class="cal-nav">
-      <button class="cal-nav-btn" onclick="calPrevMonth()">◀</button>
-      <div class="cal-nav-title" id="calNavTitle"></div>
-      <button class="cal-nav-btn" onclick="calNextMonth()">▶</button>
-      <button class="cal-nav-btn" onclick="calGoToday()" style="font-size:12px">오늘</button>
-    </div>
-    <div class="cal-wrap">
-      <div class="cal-month-wrap">
-        <div class="cal-days-header" id="calDaysHeader"></div>
-        <div class="cal-days" id="calDays"></div>
-      </div>
-      <div class="cal-sidebar">
-        <div class="goal-card" id="goalCard">
-          <div class="goal-header">
-            <span class="goal-title">📋 올해 독서 목표</span>
-            <button class="goal-edit-btn" id="goalEditBtn" onclick="toggleGoalEdit()">수정</button>
-          </div>
-          <div id="goalDisplay">
-            <div class="goal-numbers"><span class="goal-done" id="goalDoneNum">0</span><span class="goal-sep">/</span><span class="goal-target" id="goalTargetNum">—</span><span class="goal-unit">권</span></div>
-            <div class="goal-track"><div class="goal-bar" id="goalBar" style="width:0%"></div></div>
-            <div class="goal-pct" id="goalPct"></div><div class="goal-msg" id="goalMsg"></div>
+    <div class="cal-layout">
+      <section class="card cal-main">
+        <div class="cal-nav">
+          <button class="round-btn" onclick="calPrevMonth()" aria-label="이전 달">‹</button>
+          <h1 class="cal-nav-title" id="calNavTitle"></h1>
+          <button class="round-btn" onclick="calNextMonth()" aria-label="다음 달">›</button>
+          <button class="btn sm" onclick="calGoToday()">오늘</button>
+        </div>
+        <div class="cal-grid" id="calDaysHeader"></div>
+        <div class="cal-grid" id="calDays"></div>
+        <div class="cal-legend"><span><i style="background:var(--amber-bg)"></i>연속 독서일</span><span><i style="border:2px solid var(--acc)"></i>오늘</span></div>
+      </section>
+      <aside class="cal-side">
+        <section class="ink-card streak-card" id="streakCard"></section>
+        <section class="card" id="goalCard">
+          <div class="card-head"><span class="card-h">올해 목표</span><button class="link-btn" id="goalEditBtn" onclick="toggleGoalEdit()">수정</button></div>
+          <div id="goalDisplay" style="display:flex;flex-direction:column;gap:8px">
+            <div class="goal-numbers"><b id="goalDoneNum">0</b> / <span id="goalTargetNum">—</span>권 <span class="hint" id="goalPct"></span></div>
+            <div class="progress" id="goalTrack"><div id="goalBar" style="width:0%"></div></div>
+            <div class="goal-msg" id="goalMsg"></div>
           </div>
           <div id="goalEditRow" style="display:none">
-            <p style="font-size:12px;color:var(--txt3);margin-bottom:6px">올해 읽을 목표 권수를 입력하세요</p>
+            <p class="hint" style="margin-bottom:6px">올해 읽을 목표 권수를 입력하세요</p>
             <div class="goal-set-wrap">
               <input type="number" class="goal-set-input" id="goalInput" min="1" max="999" placeholder="예: 50">
               <button class="btn sm primary" onclick="saveGoal()">저장</button>
               <button class="btn sm" onclick="clearGoal()">삭제</button>
             </div>
           </div>
-        </div>
-        <div class="streak-card" id="streakCard"></div>
-        <div>
-          <div class="cal-sidebar-title">이 달의 완독</div>
-          <div class="cal-books-list" id="calBooksList"></div>
-        </div>
-      </div>
+        </section>
+        <section class="card">
+          <div class="card-h cal-sidebar-title">이 달의 완독</div>
+          <div id="calBooksList" style="display:flex;flex-direction:column;gap:6px"></div>
+        </section>
+      </aside>
     </div>
   </div>
-</div>
-<div class="cal-tooltip" id="calTooltip"></div>
+</main>
 
 <!-- EDIT MODAL -->
 <div class="ov" id="editOv" onclick="ovClick(event,'editOv',closeEdit)">
@@ -258,14 +263,17 @@
 </div>
 </div>
 
-<!-- DETAIL MODAL -->
-<div class="ov" id="detailOv" onclick="ovClick(event,'detailOv',closeDetail)">
-<div class="modal detail-modal" style="position:relative">
-  <button class="btn-x" style="position:absolute;top:10px;right:10px;z-index:5" onclick="closeDetail()">✕</button>
-  <div class="detail-scroll" id="detailScroll">
-    <div class="detail-top" id="detailTop"></div>
-    <div class="det-content" id="detailContent"></div>
+<!-- PROFILE MODAL -->
+<div class="ov" id="profileOv" onclick="ovClick(event,'profileOv',closeProfile)">
+<div class="modal" style="max-width:460px">
+  <div class="modal-head"><h2>프로필 편집</h2><button class="btn-x" onclick="closeProfile()" aria-label="닫기">✕</button></div>
+  <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
+    <div class="fg"><label for="pf-name">이름</label><input type="text" id="pf-name" maxlength="30" placeholder="예: 집착남 수집가 하연"></div>
+    <div class="fg"><label for="pf-photo">프로필 사진 URL</label><input type="url" id="pf-photo" placeholder="https://..."></div>
+    <div class="fg"><label for="pf-intro">한 줄 소개</label><textarea id="pf-intro" rows="2" maxlength="120" placeholder="요즘 계약결혼물 정주행 중" oninput="autosizeEl(this)"></textarea></div>
+    <div class="fg"><label for="pf-tags">대표 태그</label><input type="text" id="pf-tags" placeholder="#집착남 #계약결혼 (띄어쓰기로 구분)"></div>
   </div>
+  <div class="modal-foot"><div class="ml-auto" style="display:flex;gap:8px"><button class="btn" onclick="closeProfile()">취소</button><button class="btn primary" onclick="saveProfile()">저장</button></div></div>
 </div>
 </div>
 
@@ -384,6 +392,8 @@
 <script src="js/stats.js"></script>
 <script src="js/calendar.js"></script>
 <script src="js/ledger.js"></script>
+<script src="js/home.js"></script>
+<script src="js/excerpts.js"></script>
 <script>
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
@@ -394,8 +404,8 @@ document.addEventListener('DOMContentLoaded',async()=>{
   await loadFromDB();
   loadFilterState();
   render();
-  updateLogo();
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'){['editOv','detailOv','jsonOv','shareOv','settingsOv','libNameOv','confirmOv','importChoiceOv'].forEach(id=>{document.getElementById(id)?.classList.remove('open');});}});
+  switchPage('home');
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){['editOv','profileOv','jsonOv','shareOv','settingsOv','libNameOv','confirmOv','importChoiceOv'].forEach(id=>{document.getElementById(id)?.classList.remove('open');});}});
 });
 </script>
 </body>

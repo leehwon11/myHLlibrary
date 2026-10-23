@@ -1,5 +1,5 @@
-const CACHE='library-v3';
-const ASSETS=['./','./index.html','./css/style.css','./js/app.js','./js/library.js','./js/stats.js','./js/calendar.js','./js/ledger.js','./manifest.json'];
+const CACHE='library-v4';
+const ASSETS=['./','./index.html','./css/style.css','./js/app.js','./js/library.js','./js/stats.js','./js/calendar.js','./js/ledger.js','./js/home.js','./js/excerpts.js','./manifest.json'];
 
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()));
