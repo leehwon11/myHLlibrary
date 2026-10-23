@@ -125,7 +125,7 @@ async function loadFromDB(){
 let currentFilter='전체',currentStatusFilter='',editId=null,currentCover=null,currentStar=0,currentStatusVal='완독';
 let excerptsData=[],currentShareId=null,shareTheme='cream',showFavOnly=false;
 let currentCtagsSojai=[],currentCtagsRel=[],currentFlTypeTags=[],currentGenreTags=[],currentMoods=[];
-let mlData=[],rereadData=[];
+let mlData=[],rereadData=[],purchasesData=[];
 let customOrder=null;
 try{customOrder=JSON.parse(sessionStorage.getItem('myLib_customOrder')||'null');}catch(e){}
 
@@ -150,6 +150,7 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
 function getGenre(name){const color=GENRE_COLOR_MAP[name]||'#808080';return{name:name||'기타',color};}
 function hexToRgba(hex,a){if(!hex||hex.length<7)return`rgba(128,128,128,${a})`;return`rgba(${parseInt(hex.slice(1,3),16)},${parseInt(hex.slice(3,5),16)},${parseInt(hex.slice(5,7),16)},${a})`;}
 function fmtPrice(n){return n?Number(n).toLocaleString('ko-KR')+'원':'-';}
+function bookSpend(b){return(Number(b.price)||0)+(b.purchases||[]).reduce((s,p)=>s+(Number(p.amount)||0),0);}
 function localDate(d=new Date()){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function daysBetween(a,b){if(!a||!b)return null;const diff=new Date(b)-new Date(a);return diff>0?Math.round(diff/86400000):null;}
 function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -276,7 +277,7 @@ function renderMlAcc(){
 function _renderMlTypeTag(id,tag,wrap){const span=document.createElement('span');span.className='stag';const txt=document.createTextNode(tag+' ');const del=document.createElement('button');del.className='stag-del';del.textContent='✕';del.onclick=(t=>()=>{const m=mlData.find(x=>x.id===id);if(m)m.typeTags=(m.typeTags||[]).filter(x=>x!==t);span.remove();renderQuickTagsMl(id,wrap);})(tag);span.appendChild(txt);span.appendChild(del);wrap.appendChild(span);}
 
 // ══════════════ PAGE SWITCH ══════════════
-function switchPage(id,el){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');el.classList.add('active');if(id==='stats')renderStats();if(id==='calendar')renderCalendar();updateLogo();}
+function switchPage(id,el){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');el.classList.add('active');if(id==='stats')renderStats();if(id==='calendar')renderCalendar();if(id==='ledger')renderLedger();updateLogo();}
 
 // ══════════════ SHARE CARD ══════════════
 const SHARE_THEMES={cream:{bg:'#fdf6ee',bg2:'#f0e8d8',accent:'#8a5a36',text:'#2a1a0a',star:'#c09050',line:'#e0d0b8'},navy:{bg:'#1a2440',bg2:'#233060',accent:'#c0d0f0',text:'#e8eeff',star:'#f5c518',line:'#3a4a70'},rose:{bg:'#fdf0f4',bg2:'#f0d8e4',accent:'#9b4f6a',text:'#2a1020',star:'#c06080',line:'#e8c8d4'},dark:{bg:'#13121a',bg2:'#1e1c28',accent:'#9ab5e0',text:'#f0eef8',star:'#f5c518',line:'#2e2c3e'}};

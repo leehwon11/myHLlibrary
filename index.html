@@ -36,6 +36,7 @@
 <div class="nav-tabs">
   <button class="nav-tab active" onclick="switchPage('library',this)">📚 서재</button>
   <button class="nav-tab" onclick="switchPage('stats',this)">📊 통계</button>
+  <button class="nav-tab" onclick="switchPage('ledger',this)">💸 가계부</button>
   <button class="nav-tab" onclick="switchPage('calendar',this)">📅 완독 캘린더</button>
 </div>
 <div class="main">
@@ -67,6 +68,9 @@
   </div>
   <div class="page" id="page-stats">
     <div id="statsContent"></div>
+  </div>
+  <div class="page" id="page-ledger">
+    <div id="ledgerContent"></div>
   </div>
   <div class="page" id="page-calendar">
     <div class="cal-nav">
@@ -223,6 +227,9 @@
           <div class="fg"><label>읽기 시작</label><input type="date" id="f-datestart"></div>
           <div class="fg"><label>완독일</label><input type="date" id="f-dateend"></div>
         </div>
+        <div class="sec-label" style="margin-top:2px">추가 구매 <span style="font-weight:400;text-transform:none;letter-spacing:0">(외전, 편당 결제 등)</span></div>
+        <div class="reread-list" id="purchaseList"></div>
+        <button class="add-reread-btn" onclick="addPurchase()">＋ 추가 구매 기록</button>
         <div class="sec-label" style="margin-top:2px">후기</div>
         <div class="fg"><label>별점</label>
           <div class="star-row" id="starRow">
@@ -376,6 +383,7 @@
 <script src="js/library.js"></script>
 <script src="js/stats.js"></script>
 <script src="js/calendar.js"></script>
+<script src="js/ledger.js"></script>
 <script>
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
