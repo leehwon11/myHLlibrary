@@ -277,7 +277,29 @@ function renderMlAcc(){
 function _renderMlTypeTag(id,tag,wrap){const span=document.createElement('span');span.className='stag';const txt=document.createTextNode(tag+' ');const del=document.createElement('button');del.className='stag-del';del.textContent='✕';del.onclick=(t=>()=>{const m=mlData.find(x=>x.id===id);if(m)m.typeTags=(m.typeTags||[]).filter(x=>x!==t);span.remove();renderQuickTagsMl(id,wrap);})(tag);span.appendChild(txt);span.appendChild(del);wrap.appendChild(span);}
 
 // ══════════════ PAGE SWITCH ══════════════
-function switchPage(id,el){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');el.classList.add('active');if(id==='stats')renderStats();if(id==='calendar')renderCalendar();if(id==='ledger')renderLedger();updateLogo();}
+let _currentPage='home',_prevPage='home';
+function switchPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id==='page-'+id));
+  const navId=id==='detail'?_prevPage:id;
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.toggle('active',t.dataset.page===navId));
+  _currentPage=id;
+  renderPage(id);
+  window.scrollTo(0,0);
+  updateLogo();
+}
+function renderPage(id){
+  if(id==='home')renderHome();
+  else if(id==='library')render();
+  else if(id==='excerpts')renderExcerptBox();
+  else if(id==='stats')renderStats();
+  else if(id==='calendar')renderCalendar();
+  else if(id==='ledger')renderLedger();
+}
+// 데이터가 바뀐 뒤 지금 보고 있는 페이지를 다시 그린다
+function refreshActivePage(){
+  if(_currentPage==='detail'){if(!renderDetail(_detailId))switchPage(_prevPage==='detail'?'library':_prevPage);}
+  else if(_currentPage!=='library')renderPage(_currentPage);
+}
 
 // ══════════════ SHARE CARD ══════════════
 const SHARE_THEMES={cream:{bg:'#fdf6ee',bg2:'#f0e8d8',accent:'#8a5a36',text:'#2a1a0a',star:'#c09050',line:'#e0d0b8'},navy:{bg:'#1a2440',bg2:'#233060',accent:'#c0d0f0',text:'#e8eeff',star:'#f5c518',line:'#3a4a70'},rose:{bg:'#fdf0f4',bg2:'#f0d8e4',accent:'#9b4f6a',text:'#2a1020',star:'#c06080',line:'#e8c8d4'},dark:{bg:'#13121a',bg2:'#1e1c28',accent:'#9ab5e0',text:'#f0eef8',star:'#f5c518',line:'#2e2c3e'}};
@@ -456,7 +478,7 @@ async function fetchRidiBook(){
     if(btn){btn.textContent='불러오기';btn.disabled=false;}
   }
 }
-function searchByTag(tag){closeDetail();const inp=document.getElementById('searchInput');if(inp)inp.value=tag;currentStatusFilter='';showFavOnly=false;document.querySelectorAll('.sp').forEach(p=>p.classList.toggle('sp-on',p.dataset.sv===''));document.getElementById('favPill')?.classList.remove('active');switchPage('library',document.querySelector('[onclick*="switchPage(\'library\'"]')||document.querySelectorAll('.nav-tab')[0]);render();}
+function searchByTag(tag){const inp=document.getElementById('searchInput');if(inp)inp.value=tag;currentStatusFilter='';currentFilter='전체';showFavOnly=false;document.querySelectorAll('.sp').forEach(p=>p.classList.toggle('sp-on',p.dataset.sv===''));document.getElementById('favPill')?.classList.remove('active');switchPage('library');}
 
 // ══════════════ 설정 (테마/폰트) ══════════════
 const BG_THEMES=[{id:'default',name:'기본',colors:['#f7f6f4','#f0eeeb']},{id:'cream',name:'크림',colors:['#fdf6ee','#f5ead8']},{id:'rose',name:'로즈',colors:['#fdf0f4','#f5e0e8']},{id:'mint',name:'민트',colors:['#f0f8f4','#e0f0e8']},{id:'lavender',name:'라벤더',colors:['#f4f0fd','#e8e0f8']},{id:'sky',name:'하늘',colors:['#f0f6fd','#e0eef8']}];

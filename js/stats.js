@@ -1,190 +1,129 @@
 // ══════════════ 나의 서재 — Stats ══════════════
 
+let _statsYear=new Date().getFullYear();
+
+function countMap(list,fn){const m={};list.forEach(b=>fn(b).forEach(k=>{if(k)m[k]=(m[k]||0)+1;}));return Object.entries(m).sort((a,b)=>b[1]-a[1]);}
+
+function hbarsHtml(entries,cls,limit=8){
+  if(!entries.length) return '<p class="hint">아직 기록이 없어요.</p>';
+  const top=entries.slice(0,limit);const max=top[0][1]||1;
+  return`<div class="hbars">${top.map(([k,n])=>`<div class="hbar"><span class="hbar-label">${escHtml(k)}</span><div class="hbar-track"><div class="hbar-fill ${cls||''}" style="width:${Math.max(3,Math.round(n/max*100))}%"></div></div><span class="hbar-val">${n}</span></div>`).join('')}</div>`;
+}
+
+function cloudHtml(entries,cls){
+  if(!entries.length) return '<p class="hint">아직 기록이 없어요.</p>';
+  const top=entries.slice(0,20);const max=top[0][1];
+  return`<div class="tag-cloud ${cls||''}">${top.map(([t,n])=>`<button type="button" class="cloud-tag" style="font-size:${Math.round(12+(n/max)*6)}px;border:0" data-tag="${encodeURIComponent(t)}" onclick="searchByTag(decodeURIComponent(this.dataset.tag))">${escHtml(t)}<small>${n}</small></button>`).join('')}</div>`;
+}
+
 function renderStats(){
   const c=document.getElementById('statsContent');
   if(!c) return;
-  if(!books.length){c.innerHTML='<div style="text-align:center;padding:60px 0;color:var(--txt3)"><div style="font-size:40px;opacity:.2">📊</div><p style="margin-top:8px">책을 추가하면 통계가 보여요!</p></div>';return;}
-  const done=books.filter(b=>b.status==='완독');
-  const reading=books.filter(b=>b.status==='읽는중');
-  const wish=books.filter(b=>b.status==='읽고싶어요');
-  const dnf=books.filter(b=>b.status==='하차');
-  const avgR=done.length?((done.reduce((s,b)=>s+(b.rating||0),0)/done.length).toFixed(1)):'0.0';
-  const year=new Date().getFullYear();
-  const doneThisYear=done.filter(b=>b.dateend&&b.dateend.startsWith(String(year)));
-  const goal=appSettings.yearlyGoal||30;
+  if(!books.length){c.innerHTML='<div class="page-head"><h1 class="page-title">통계</h1></div><div class="empty"><div class="empty-ico">📊</div><p>책을 추가하면 통계가 보여요!</p></div>';return;}
+  const thisYear=new Date().getFullYear();
+  const allDone=books.filter(b=>b.status==='완독');
+  const years=[...new Set([thisYear,...allDone.filter(b=>b.dateend).map(b=>Number(b.dateend.slice(0,4)))])].sort((a,b)=>b-a);
+  const isAll=_statsYear==='all';
+  if(!isAll&&!years.includes(_statsYear))_statsYear=thisYear;
+  const year=_statsYear;
+  const done=isAll?allDone:allDone.filter(b=>b.dateend&&b.dateend.startsWith(String(year)));
+  const scope=isAll?'전체 기간':`${year}년 완독 기준`;
+  const rated=done.filter(b=>b.rating);
+  const avgR=rated.length?(rated.reduce((s,b)=>s+b.rating,0)/rated.length).toFixed(1):'-';
+  const five=done.filter(b=>b.rating===5).length;
+  const st=calcStreaks();
+  const prevYearCnt=isAll?0:allDone.filter(b=>b.dateend&&b.dateend.startsWith(String(year-1))).length;
+  const cntOf=s=>books.filter(b=>b.status===s).length;
 
-  let html='';
+  let h=`<div class="page-head"><h1 class="page-title">${isAll?'전체 기간의 독서':year+'년의 독서'}</h1>
+    <select class="sort-select" aria-label="기간" onchange="_statsYear=this.value==='all'?'all':Number(this.value);renderStats()">${years.map(y=>`<option value="${y}"${y===year?' selected':''}>${y}년</option>`).join('')}<option value="all"${isAll?' selected':''}>전체 기간</option></select></div>`;
 
-  html+=`<div class="section-title">기본 통계</div>
-  <div class="stat-row">
-    <div class="stat-box"><div class="stat-num">${books.length}</div><div class="stat-label">전체</div></div>
-    <div class="stat-box"><div class="stat-num">${done.length}</div><div class="stat-label">완독</div></div>
-    <div class="stat-box"><div class="stat-num">${reading.length}</div><div class="stat-label">읽는중</div></div>
-    <div class="stat-box"><div class="stat-num">${wish.length}</div><div class="stat-label">읽고싶어요</div></div>
-    ${dnf.length?`<div class="stat-box"><div class="stat-num">${dnf.length}</div><div class="stat-label">하차</div></div>`:''}
-    <div class="stat-box"><div class="stat-num">${avgR}</div><div class="stat-label">평균 별점</div></div>
+  h+=`<div class="kpis">
+    <div class="kpi"><span class="kpi-label">${isAll?'완독':'올해 완독'}</span><span class="kpi-num">${done.length}</span><span class="kpi-sub">${!isAll&&prevYearCnt?`작년보다 ${done.length-prevYearCnt>=0?'+':''}${done.length-prevYearCnt}권`:'&nbsp;'}</span></div>
+    <div class="kpi"><span class="kpi-label">읽는 중</span><span class="kpi-num">${cntOf('읽는중')}</span><span class="kpi-sub">&nbsp;</span></div>
+    <div class="kpi"><span class="kpi-label">읽고 싶어요</span><span class="kpi-num">${cntOf('읽고싶어요')}</span><span class="kpi-sub">&nbsp;</span></div>
+    <div class="kpi"><span class="kpi-label">하차</span><span class="kpi-num">${cntOf('하차')}</span><span class="kpi-sub">&nbsp;</span></div>
+    <div class="kpi"><span class="kpi-label">평균 별점</span><span class="kpi-num">${avgR}</span><span class="kpi-sub">${five?`★5개 ${five}권`:'&nbsp;'}</span></div>
+    <div class="kpi"><span class="kpi-label">최장 연속 독서</span><span class="kpi-num">${st.longestStreak}일</span><span class="kpi-sub">지금 ${st.currentStreak}일째</span></div>
   </div>`;
 
-  const goalPct=Math.min(100,Math.round(doneThisYear.length/goal*100));
-  let circles='';
-  for(let i=1;i<=goal;i++){
-    circles+=`<div class="goal-circle${i<=doneThisYear.length?' filled':''}">${i}</div>`;
+  if(!isAll&&year===thisYear){
+    const goal=appSettings.yearlyGoal||0;
+    const pct=goal?Math.min(100,Math.round(done.length/goal*100)):0;
+    const left=Math.max(0,goal-done.length);const monthsLeft=12-new Date().getMonth();
+    const pace=goal?(left?`남은 ${monthsLeft}개월 동안 한 달에 ${Math.ceil(left/monthsLeft)}권씩 읽으면 달성해요`:'🎉 올해 목표를 달성했어요!'):'목표 권수를 정하면 진행률을 보여드려요';
+    h+=`<section class="card"><div class="card-head"><span class="card-h">${goal?`올해 목표 ${goal}권`:'올해 목표'}</span><span class="profile-sub">${goal?`<b style="color:var(--txt)">${done.length}권</b> · ${pct}%`:''}</span></div>
+      ${goal?`<div class="progress${pct>=100?' done':''}"><div style="width:${pct}%"></div></div>`:''}
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><span class="hint">${pace}</span>
+      <span class="inline-edit"><input type="number" id="statsGoalInput" min="0" max="999" placeholder="목표 권수" value="${goal||''}" aria-label="목표 권수"><button class="btn sm" onclick="saveGoalValue(document.getElementById('statsGoalInput').value)">저장</button></span></div></section>`;
   }
-  html+=`<div class="section-title">${year}년 독서 목표</div>
-  <div class="goal-tracker">
-    <div class="goal-tracker-header">
-      <span style="font-family:var(--font-serif);font-size:18px;color:var(--txt2)">${doneThisYear.length} / ${goal}권</span>
-      <span style="font-family:var(--font-serif);font-size:16px;color:var(--txt3)">${goalPct}%</span>
-    </div>
-    ${circles}
+
+  const genres=countMap(done,b=>b.genre||[]);
+  if(!isAll){
+    const months=Array(12).fill(0);done.forEach(b=>{const m=Number(b.dateend.slice(5,7))-1;if(m>=0&&m<12)months[m]++;});
+    const maxM=Math.max(...months,1);const curM=year===thisYear?new Date().getMonth():-1;
+    h+=`<div class="cards-row"><section class="card wide"><span class="card-h">월별 완독</span>
+      <div class="vbars">${months.map((n,i)=>`<div class="vbar${i===curM?' on':''}"><span class="vbar-val">${n||''}</span><div class="vbar-bar" style="height:${n?Math.max(4,Math.round(n/maxM*140)):2}px"></div></div>`).join('')}</div>
+      <div class="vbar-labels">${months.map((_,i)=>`<span>${i+1}월</span>`).join('')}</div></section>
+      <section class="card"><div class="card-head"><span class="card-h">장르</span><span class="hint">${scope}</span></div>${hbarsHtml(genres)}</section></div>`;
+  }else{
+    h+=`<div class="cards-row"><section class="card"><div class="card-head"><span class="card-h">장르</span><span class="hint">${scope}</span></div>${hbarsHtml(genres)}</section></div>`;
+  }
+
+  const stars=[5,4,3,2,1].map(s=>['★'.repeat(s),done.filter(b=>b.rating===s).length]);
+  const mlTypes=countMap(done,b=>(Array.isArray(b.ml)?b.ml:(b.ml&&b.ml.name?[b.ml]:[])).filter(m=>!m.sub).flatMap(m=>m.typeTags||[]));
+  const flTypes=countMap(done,b=>[...new Set([...(b.flTypeTags||[]),...((b.fl&&b.fl.typeTags)||[])])]);
+  h+=`<div class="cards-row">
+    <section class="card"><div class="card-head"><span class="card-h">최애 남주 유형</span><span class="hint">${scope}</span></div>${hbarsHtml(mlTypes,'ml')}</section>
+    <section class="card"><div class="card-head"><span class="card-h">여주 유형</span><span class="hint">${scope}</span></div>${hbarsHtml(flTypes,'fl')}</section>
+    <section class="card"><div class="card-head"><span class="card-h">별점 분포</span><span class="hint">${scope}</span></div>${done.length?`<div class="hbars">${stars.map(([k,n])=>{const max=Math.max(...stars.map(s=>s[1]),1);return`<div class="hbar"><span class="hbar-label" style="color:var(--star)">${k}</span><div class="hbar-track"><div class="hbar-fill star" style="width:${n?Math.max(3,Math.round(n/max*100)):0}%"></div></div><span class="hbar-val">${n}</span></div>`;}).join('')}</div>`:'<p class="hint">아직 기록이 없어요.</p>'}</section>
   </div>`;
 
-  const monthCounts=Array(12).fill(0);
-  doneThisYear.forEach(b=>{
-    const m=parseInt(b.dateend.slice(5,7))-1;
-    if(m>=0&&m<12) monthCounts[m]++;
-  });
-  let monthHtml='';
-  for(let i=0;i<12;i++){
-    let dots='';
-    for(let d=0;d<monthCounts[i];d++) dots+=`<div class="month-dot"></div>`;
-    monthHtml+=`<div class="month-col"><div class="month-dots">${dots}</div><div class="month-label-text">${i+1}월</div></div>`;
-  }
-  html+=`<div class="section-title">월별 독서량</div><div class="monthly-row">${monthHtml}</div>`;
+  h+=`<div class="cards-row">
+    <section class="card"><div class="card-head"><span class="card-h">소재 태그</span><span class="hint">${scope}</span></div>${cloudHtml(countMap(done,b=>b.sojaiTags||b.tags||[]))}</section>
+    <section class="card"><div class="card-head"><span class="card-h">관계 태그</span><span class="hint">${scope}</span></div>${cloudHtml(countMap(done,b=>b.relTags||b.themes||[]),'rel')}</section>
+  </div>`;
 
-  const genreMap={};
-  done.forEach(b=>(b.genre||[]).forEach(g=>{genreMap[g]=(genreMap[g]||0)+1;}));
-  const genreEntries=Object.entries(genreMap).sort((a,b)=>b[1]-a[1]);
-  if(genreEntries.length){
-    let totalG=genreEntries.reduce((s,e)=>s+e[1],0);
-    let conic='',deg=0;
-    const legendItems=[];
-    genreEntries.forEach(([name,count])=>{
-      const color=getGenreColor(name);
-      const pct=count/totalG*360;
-      conic+=`${color} ${deg}deg ${deg+pct}deg,`;
-      deg+=pct;
-      legendItems.push(`<div class="pie-item"><div class="pie-dot" style="background:${color}"></div>${escHtml(name)} (${count})</div>`);
-    });
-    conic=conic.slice(0,-1);
-    html+=`<div class="section-title">장르 분포</div>
-    <div class="pie-wrap">
-      <div class="pie-chart" style="background:conic-gradient(${conic})"></div>
-      <div class="pie-legend">${legendItems.join('')}</div>
-    </div>`;
+  const moodCnt={};done.forEach(b=>(b.moods||[]).forEach(m=>{moodCnt[m]=(moodCnt[m]||0)+1;}));
+  const moods=MOOD_OPTIONS.map(m=>({...m,n:moodCnt[m.label]||0})).sort((a,b)=>b.n-a.n);
+  h+=`<section class="card"><div class="card-head"><span class="card-h">읽고 난 감정</span><span class="hint">${scope}</span></div>
+    <div class="mood-grid">${moods.map(m=>`<div class="mood-cell" style="background:${m.bg};color:${m.color}"><span>${m.emoji} ${escHtml(m.label)}</span><b>${m.n}</b></div>`).join('')}</div></section>`;
+
+  const dnf=books.filter(b=>b.status==='하차').sort((a,b)=>(b.dnfDate||'').localeCompare(a.dnfDate||''));
+  if(dnf.length){
+    h+=`<section class="card"><div class="card-head"><span class="card-h">하차한 책 ${dnf.length}권</span><span class="hint">전체 기간</span></div><ul class="dnf-list">${dnf.slice(0,6).map(b=>`<li onclick="openDetail('${b.id}')"><b style="color:var(--txt)">${escHtml(b.title)}</b>${b.dnfAt?` · ${escHtml(b.dnfAt)}`:''}${b.dnfReason?` — ${escHtml(b.dnfReason.split('\n')[0].slice(0,60))}`:''}</li>`).join('')}</ul></section>`;
   }
 
-  const starCounts=[0,0,0,0,0];
-  done.forEach(b=>{if(b.rating>=1&&b.rating<=5) starCounts[b.rating-1]++;});
-  const maxStar=Math.max(...starCounts,1);
-  let starHtml='';
-  for(let i=4;i>=0;i--){
-    const pct=Math.round(starCounts[i]/maxStar*100);
-    starHtml+=`<div class="star-bar-row">
-      <div class="star-bar-label">${'★'.repeat(i+1)}</div>
-      <div class="star-bar-track"><div class="star-bar-fill" style="width:${pct}%"></div></div>
-      <div class="star-bar-count">${starCounts[i]}</div>
-    </div>`;
-  }
-  html+=`<div class="section-title">별점 분포</div><div class="star-bars">${starHtml}</div>`;
+  if(!isAll) h+=`<section class="card"><span class="card-h">독서 히트맵</span>${renderHeatmap(allDone,year)}</section>`;
+  c.innerHTML=h;
+}
 
-  html+=renderTagCloud('소재 태그',done,'sojaiTags');
-  html+=renderTagCloud('관계 태그',done,'relTags');
-  html+=renderMlTypeBars(done);
-  html+=renderFlTypeBars(done);
-  html+=renderHeatmap(done);
-
-  c.innerHTML=html;
+function saveGoalValue(v){
+  appSettings.yearlyGoal=Math.max(0,Math.min(999,parseInt(v)||0));
+  saveData();
+  renderStats();
+  showToast(appSettings.yearlyGoal?'목표를 저장했어요!':'목표를 지웠어요.');
 }
 
 function getGenreColor(name){
   return (typeof GENRE_COLOR_MAP!=='undefined'&&GENRE_COLOR_MAP[name])||'#808080';
 }
 
-function renderTagCloud(title,doneBooks,field){
-  const map={};
-  doneBooks.forEach(b=>(b[field]||[]).forEach(t=>{map[t]=(map[t]||0)+1;}));
-  const entries=Object.entries(map).sort((a,b)=>b[1]-a[1]);
-  if(!entries.length) return '';
-  const maxC=entries[0][1];
-  const colors=['sticker-pink','sticker-mint','sticker-lavender','sticker-yellow'];
-  const tags=entries.map(([name,count],i)=>{
-    const size=Math.round(13+(count/maxC)*9);
-    return `<span class="sticker ${colors[i%4]}" style="font-size:${size}px">${escHtml(name)} (${count})</span>`;
-  }).join('');
-  return `<div class="section-title">${escHtml(title)}</div><div class="tag-cloud">${tags}</div>`;
-}
-
-function renderCharBars(title,doneBooks,field,color){
-  const map={};
-  doneBooks.forEach(b=>{if(b[field]) map[b[field]]=(map[b[field]]||0)+1;});
-  const entries=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  if(!entries.length) return '';
-  const maxC=entries[0][1];
-  const bars=entries.map(([name,count])=>{
-    const pct=Math.round(count/maxC*100);
-    return `<div class="char-bar-row">
-      <div class="char-bar-label">${escHtml(name)}</div>
-      <div class="char-bar-track"><div class="char-bar-fill" style="width:${pct}%;background:${color}"></div></div>
-      <div class="char-bar-count">${count}</div>
-    </div>`;
-  }).join('');
-  return `<div class="section-title">${escHtml(title)}</div><div class="char-bars">${bars}</div>`;
-}
-
-function renderMlTypeBars(doneBooks){
-  const map={};
-  doneBooks.forEach(b=>{
-    const arr=Array.isArray(b.ml)?b.ml:(b.ml&&b.ml.name?[b.ml]:[]);
-    arr.forEach(m=>(m.typeTags||[]).forEach(t=>{const tag=t.replace(/^#/,'');map[tag]=(map[tag]||0)+1;}));
-  });
-  const entries=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  if(!entries.length) return '';
-  const maxC=entries[0][1];
-  const bars=entries.map(([name,count])=>{
-    const pct=Math.round(count/maxC*100);
-    return `<div class="char-bar-row"><div class="char-bar-label">${escHtml(name)}</div><div class="char-bar-track"><div class="char-bar-fill" style="width:${pct}%;background:var(--rose)"></div></div><div class="char-bar-count">${count}</div></div>`;
-  }).join('');
-  return `<div class="section-title">남주 유형</div><div class="char-bars">${bars}</div>`;
-}
-
-function renderFlTypeBars(doneBooks){
-  const map={};
-  doneBooks.forEach(b=>{
-    const tags=[...(b.flTypeTags||[]),...(b.fl&&b.fl.typeTags?b.fl.typeTags:[])].filter((v,i,a)=>a.indexOf(v)===i);
-    tags.forEach(t=>{const tag=t.replace(/^#/,'');map[tag]=(map[tag]||0)+1;});
-  });
-  const entries=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  if(!entries.length) return '';
-  const maxC=entries[0][1];
-  const bars=entries.map(([name,count])=>{
-    const pct=Math.round(count/maxC*100);
-    return `<div class="char-bar-row"><div class="char-bar-label">${escHtml(name)}</div><div class="char-bar-track"><div class="char-bar-fill" style="width:${pct}%;background:var(--acc2)"></div></div><div class="char-bar-count">${count}</div></div>`;
-  }).join('');
-  return `<div class="section-title">여주 유형</div><div class="char-bars">${bars}</div>`;
-}
-
-function renderHeatmap(doneBooks){
-  const today=new Date();
-  const year=today.getFullYear();
+function renderHeatmap(doneBooks,year){
   const dateMap={},dateBooks={};
   doneBooks.forEach(b=>{
     if(b.dateend&&b.dateend.startsWith(String(year))){
       const k=b.dateend.slice(0,10);
       dateMap[k]=(dateMap[k]||0)+1;
-      if(!dateBooks[k]) dateBooks[k]=[];
-      dateBooks[k].push(b.id);
+      (dateBooks[k]=dateBooks[k]||[]).push(b.id);
     }
   });
-
   const start=new Date(year,0,1),startDow=start.getDay();
-  const totalDays=(new Date(year,11,31)-start)/86400000+1;
+  const totalDays=Math.round((new Date(year,11,31)-start)/86400000)+1;
   const totalWeeks=Math.ceil((startDow+totalDays)/7);
   const monthLabels=[];
   for(let m=0;m<12;m++){const d=new Date(year,m,1);const di=Math.round((d-start)/86400000);monthLabels.push({month:m,weekIndex:Math.floor((di+startDow)/7)});}
-  const MNS=['1','2','3','4','5','6','7','8','9','10','11','12'];
   const DAYS=['일','','화','','목','','토'];
-
   let cells='';
   for(let w=0;w<totalWeeks;w++){
     for(let d=0;d<7;d++){
@@ -200,28 +139,20 @@ function renderHeatmap(doneBooks){
       cells+=`<div class="heatmap-cell ${lv}${clickable}" title="${tip}"></div>`;
     }
   }
-
-  let monthLabelHtml='<div style="display:flex;gap:0;padding-left:28px;min-width:max-content">';
-  for(let w=0;w<totalWeeks;w++){const ml=monthLabels.find(m=>m.weekIndex===w);monthLabelHtml+=`<div style="width:17px;font-size:10px;color:var(--txt4)">${ml?MNS[ml.month]:''}</div>`;}
+  let monthLabelHtml='<div style="display:flex;padding-left:22px;min-width:max-content">';
+  for(let w=0;w<totalWeeks;w++){const ml=monthLabels.find(m=>m.weekIndex===w);monthLabelHtml+=`<div style="width:17px;font-size:10px;color:var(--txt3)">${ml?ml.month+1:''}</div>`;}
   monthLabelHtml+='</div>';
-
-  let dayLabelHtml='<div class="heatmap-days">';
-  DAYS.forEach(d=>{dayLabelHtml+=`<div class="heatmap-day-label">${d}</div>`;});
-  dayLabelHtml+='</div>';
-
+  const dayLabelHtml=`<div class="heatmap-days">${DAYS.map(d=>`<div class="heatmap-day-label">${d}</div>`).join('')}</div>`;
   const totalDone=Object.values(dateMap).reduce((a,b)=>a+b,0);
-
-  return `<div class="section-title">독서 히트맵</div>
-  <div>${monthLabelHtml}<div class="heatmap-outer">${dayLabelHtml}<div class="heatmap-wrap"><div class="heatmap-grid">${cells}</div></div></div>
-  <div class="heatmap-legend"><span>적음</span><div class="heatmap-legend-cell"></div><div class="heatmap-legend-cell" style="background:#c6e6d4"></div><div class="heatmap-legend-cell" style="background:#7bc99d"></div><div class="heatmap-legend-cell" style="background:#3d9e68"></div><div class="heatmap-legend-cell" style="background:#1d6e44"></div><span>많음</span><span style="margin-left:8px">완독 ${totalDone}권</span></div></div>`;
+  return`<div class="heatmap-wrap"><div style="min-width:max-content">${monthLabelHtml}<div class="heatmap-outer">${dayLabelHtml}<div class="heatmap-grid">${cells}</div></div></div></div>
+  <div class="heatmap-legend"><span>적음</span><div class="heatmap-cell"></div><div class="heatmap-cell lv1"></div><div class="heatmap-cell lv2"></div><div class="heatmap-cell lv3"></div><div class="heatmap-cell lv4"></div><span>많음</span><span style="margin-left:8px">완독 ${totalDone}권</span></div>`;
 }
 
 function goToHeatmapDate(dateStr,idsCsv){
   const ids=idsCsv?idsCsv.split(','):[];
+  if(ids.length===1){openDetail(ids[0]);return;}
   const [y,m]=dateStr.split('-').map(Number);
   _calYear=y;_calMonth=m-1;
-  switchPage('calendar',document.querySelector('[onclick*="switchPage(\'calendar\'"]')||document.querySelectorAll('.nav-tab')[1]);
-  renderCalendar();
-  if(ids.length===1){setTimeout(()=>openDetail(ids[0]),150);}
-  else if(ids.length>1){showToast(`${dateStr}에 완독한 책 ${ids.length}권 — 아래 목록에서 확인하세요.`);}
+  switchPage('calendar');
+  if(ids.length>1)showToast(`${dateStr}에 완독한 책 ${ids.length}권이에요.`);
 }
