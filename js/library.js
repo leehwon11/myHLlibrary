@@ -48,17 +48,8 @@ function updateShelfCounts(){
   document.querySelectorAll('.sp').forEach(p=>{const s=p.querySelector('.sp-count');if(s)s.textContent=' '+(cnt[p.dataset.sv]||0);});
   const c=document.getElementById('shelfCount');if(c)c.textContent=books.length+'권';
 }
-function renderGenreChips(){
-  const el=document.getElementById('genreChips');if(!el)return;
-  const m={};books.forEach(b=>(b.genre||[]).forEach(g=>{m[g]=(m[g]||0)+1;}));
-  let top=Object.entries(m).sort((a,b)=>b[1]-a[1]).map(e=>e[0]).slice(0,8);
-  if(currentFilter!=='전체'&&!top.includes(currentFilter))top.push(currentFilter);
-  if(!top.length){el.innerHTML='';return;}
-  el.innerHTML=[`<button class="pill${currentFilter==='전체'?' on':''}" onclick="setGenreFilter('전체')">전체 장르</button>`,...top.map(g=>`<button class="pill${currentFilter===g?' on':''}" data-g="${encodeURIComponent(g)}" onclick="setGenreFilter(decodeURIComponent(this.dataset.g))">${escHtml(g)}</button>`)].join('');
-}
-function setGenreFilter(g){currentFilter=currentFilter===g?'전체':g;render();}
 function render(){
-  updateLogo();updateShelfCounts();renderGenreChips();
+  updateLogo();updateShelfCounts();
   const q=(document.getElementById('searchInput')?.value||'').toLowerCase();
   const filtered=getSortedFiltered();const grid=document.getElementById('bookGrid');
   grid.innerHTML=filtered.length?filtered.map(b=>renderCard(b,q)).join(''):`<div class="empty"><div class="empty-ico">📚</div><p>${books.length?'조건에 맞는 책이 없어요.':'아직 등록된 책이 없어요. 오른쪽 위 "+ 책 추가"로 시작해보세요.'}</p></div>`;
