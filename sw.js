@@ -1,5 +1,5 @@
-const CACHE='library-v8';
-const ASSETS=['./','./index.html','./css/style.css','./js/app.js','./js/library.js','./js/stats.js','./js/calendar.js','./js/ledger.js','./js/home.js','./js/excerpts.js','./manifest.json'];
+const CACHE='library-v9';
+const ASSETS=['./','./index.html','./css/style.css?v=9','./js/app.js?v=9','./js/library.js?v=9','./js/stats.js?v=9','./js/calendar.js?v=9','./js/ledger.js?v=9','./js/home.js?v=9','./js/excerpts.js?v=9','./manifest.json'];
 
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()));
@@ -13,7 +13,7 @@ self.addEventListener('fetch',e=>{
   if(e.request.method!=='GET') return;
   if(new URL(e.request.url).origin!==self.location.origin) return;
   e.respondWith(
-    fetch(e.request).then(res=>{
+    fetch(e.request,{cache:'no-cache'}).then(res=>{
       if(res.ok){
         const clone=res.clone();
         caches.open(CACHE).then(c=>c.put(e.request,clone));
