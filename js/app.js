@@ -52,6 +52,39 @@ function getSupabase(){
   return sb;
 }
 
+// ══════════════ 로그인 (주인 전용) ══════════════
+let _loginResolve=null,_userEmail='';
+async function ensureLogin(){
+  const client=getSupabase();if(!client)return;
+  const{data}=await client.auth.getSession();
+  if(data&&data.session){_userEmail=data.session.user?.email||'';return;}
+  document.getElementById('loginOv').classList.add('open');
+  setTimeout(()=>document.getElementById('loginEmail')?.focus(),50);
+  return new Promise(res=>{_loginResolve=res;});
+}
+async function submitLogin(ev){
+  ev.preventDefault();
+  const client=getSupabase();if(!client)return;
+  const email=document.getElementById('loginEmail').value.trim();
+  const password=document.getElementById('loginPassword').value;
+  const btn=document.getElementById('loginBtn');const err=document.getElementById('loginError');
+  err.textContent='';btn.disabled=true;btn.textContent='로그인 중...';
+  const{data,error}=await client.auth.signInWithPassword({email,password});
+  btn.disabled=false;btn.textContent='로그인';
+  if(error){err.textContent='이메일 또는 비밀번호가 맞지 않아요.';return;}
+  _userEmail=data.user?.email||email;
+  document.getElementById('loginPassword').value='';
+  document.getElementById('loginOv').classList.remove('open');
+  if(_loginResolve){_loginResolve();_loginResolve=null;}
+}
+async function logout(){
+  const ok=await showConfirm('로그아웃','이 기기에서 로그아웃할까요? 이 기기에 저장된 백업도 함께 지워져요.','로그아웃');
+  if(!ok)return;
+  try{await getSupabase()?.auth.signOut();}catch(e){}
+  try{localStorage.removeItem('library_backup');}catch(e){}
+  location.reload();
+}
+
 // ══════════════ 레거시 IndexedDB (1회성 마이그레이션 읽기 전용) ══════════════
 const DB_NAME='myLibDB',DB_VERSION=1,STORE='kvStore';let _db=null;
 function openDB(){return new Promise((res,rej)=>{if(_db){res(_db);return;}const req=indexedDB.open(DB_NAME,DB_VERSION);req.onupgradeneeded=e=>e.target.result.createObjectStore(STORE);req.onsuccess=e=>{_db=e.target.result;res(_db);};req.onerror=e=>rej(e.target.error);});}
@@ -156,9 +189,9 @@ async function loadFromDB(){
       books=(data.value.books||[]).map(normalizeBook);
       if(data.value.appSettings) appSettings={...appSettings,...data.value.appSettings};
     }else{
+      // 행이 안 보이면(첫 사용, 또는 권한 없음) 빈 서재로 덮어쓰지 않는다
       const migrated=await tryMigrateFromIndexedDB();
-      if(!migrated)books=[];
-      await saveData();
+      if(migrated)await saveData();else books=[];
     }
   }catch(e){
     console.error('loadFromDB(Supabase) 오류:',e);
@@ -553,7 +586,7 @@ function initBgTheme(){
 }
 function applyBgTheme(id){document.body.className=document.body.className.replace(/theme-\S+/g,'').trim();if(id!=='default')document.body.classList.add('theme-'+id);}
 function applyFont(id){const all=[...BUILTIN_FONTS,...userFonts];const f=all.find(x=>x.id===id)||BUILTIN_FONTS[0];document.body.style.setProperty('--font-body',f.css);}
-function openSettings(){renderThemeGrid();renderFontList();renderShareSettings();document.getElementById('settingsOv').classList.add('open');}
+function openSettings(){renderThemeGrid();renderFontList();renderShareSettings();const ae=document.getElementById('accountEmail');if(ae)ae.textContent=_userEmail||'로그인 정보 없음';document.getElementById('settingsOv').classList.add('open');}
 function closeSettings(){document.getElementById('settingsOv').classList.remove('open');}
 function renderThemeGrid(){const el=document.getElementById('themeGrid');el.innerHTML=BG_THEMES.map(t=>`<div class="theme-swatch${t.id===currentBgTheme?' active':''}" onclick="selectBgTheme('${t.id}')"><div class="theme-circle" style="background:linear-gradient(135deg,${t.colors[0]},${t.colors[1]})"></div><span class="theme-name">${t.name}</span></div>`).join('');}
 function selectBgTheme(id){currentBgTheme=id;localStorage.setItem('myLib_bgTheme',id);applyBgTheme(id);renderThemeGrid();}

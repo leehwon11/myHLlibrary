@@ -263,6 +263,20 @@
 </div>
 </div>
 
+<!-- LOGIN -->
+<div class="ov login-ov" id="loginOv">
+<form class="modal login-card" onsubmit="submitLogin(event)">
+  <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
+    <div class="login-title">📚 나의 서재</div>
+    <p class="hint">주인만 들어올 수 있어요. 친구는 보여주기 링크로 구경할 수 있어요.</p>
+    <div class="fg"><label for="loginEmail">이메일</label><input type="email" id="loginEmail" autocomplete="username" required></div>
+    <div class="fg"><label for="loginPassword">비밀번호</label><input type="password" id="loginPassword" autocomplete="current-password" required></div>
+    <p class="login-error" id="loginError" role="alert"></p>
+    <button class="btn primary" id="loginBtn" type="submit">로그인</button>
+  </div>
+</form>
+</div>
+
 <!-- PROFILE MODAL -->
 <div class="ov" id="profileOv" onclick="ovClick(event,'profileOv',closeProfile)">
 <div class="modal" style="max-width:460px">
@@ -323,6 +337,10 @@
 <div class="modal" style="max-width:500px;max-height:85vh">
   <div class="modal-head"><h2>⚙ 설정</h2><button class="btn-x" onclick="closeSettings()">✕</button></div>
   <div class="modal-body" style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="sec-label">계정</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="hint" id="accountEmail"></span><button class="btn sm ml-auto" onclick="logout()">로그아웃</button></div>
+    </div>
     <div style="display:flex;flex-direction:column;gap:8px">
       <div class="sec-label">보여주기 모드</div>
       <p class="hint">친구에게 내 서재를 보여주는 읽기 전용 링크예요. 메모, 가격, 구매일, 추가 구매, 가계부는 빠지고 수정 버튼도 숨겨져요.</p>
@@ -411,6 +429,7 @@ document.addEventListener('DOMContentLoaded',async()=>{
   if(VIEW_MODE)document.body.classList.add('view-mode');
   initDark();
   initBgTheme();
+  if(!VIEW_MODE)await ensureLogin();
   await loadFromDB();
   if(VIEW_MODE){const vb=document.getElementById('viewBanner');vb.textContent=`${(appSettings.profile&&appSettings.profile.name)||(_viewLib&&_viewLib.name)||'친구'}님의 서재를 구경하는 중이에요 · 읽기 전용`;vb.hidden=false;}
   loadFilterState();

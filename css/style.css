@@ -471,6 +471,12 @@ body.dark .heatmap-cell.lv1{background:#4d2b3b}body.dark .heatmap-cell.lv2{backg
 .streak-card .ink-btn{align-self:flex-start;font-size:13px;padding:6px 14px}
 .cal-day[onclick]{cursor:pointer}
 
+/* ── 로그인 ── */
+.login-ov{background:var(--bg);backdrop-filter:none;z-index:400}
+.login-card{max-width:380px}
+.login-title{font-family:var(--font-display);font-size:24px;font-weight:700;color:var(--txt)}
+.login-error{font-size:13px;color:var(--warn);min-height:18px}
+
 /* ── 반응형 ── */
 @media(max-width:900px){
   .main-nav{order:3;flex-basis:100%;overflow-x:auto;margin:0 -8px;padding:0 8px;scrollbar-width:none}
