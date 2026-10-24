@@ -53,11 +53,11 @@ function getSupabase(){
 }
 
 // ══════════════ 로그인 (주인 전용) ══════════════
-let _loginResolve=null,_userEmail='';
+let _loginResolve=null,_userEmail='',_userId='';
 async function ensureLogin(){
   const client=getSupabase();if(!client)return;
   const{data}=await client.auth.getSession();
-  if(data&&data.session){_userEmail=data.session.user?.email||'';return;}
+  if(data&&data.session){_userEmail=data.session.user?.email||'';_userId=data.session.user?.id||'';return;}
   document.getElementById('loginOv').classList.add('open');
   setTimeout(()=>document.getElementById('loginEmail')?.focus(),50);
   return new Promise(res=>{_loginResolve=res;});
@@ -71,16 +71,25 @@ async function submitLogin(ev){
   err.textContent='';btn.disabled=true;btn.textContent='로그인 중...';
   const{data,error}=await client.auth.signInWithPassword({email,password});
   btn.disabled=false;btn.textContent='로그인';
-  if(error){err.textContent='이메일 또는 비밀번호가 맞지 않아요.';return;}
-  _userEmail=data.user?.email||email;
+  if(error){err.textContent=loginErrorText(error);return;}
+  _userEmail=data.user?.email||email;_userId=data.user?.id||'';
   document.getElementById('loginPassword').value='';
   document.getElementById('loginOv').classList.remove('open');
   if(_loginResolve){_loginResolve();_loginResolve=null;}
 }
+function loginErrorText(error){
+  const code=error.code||'',msg=(error.message||'').toLowerCase();
+  if(code==='email_not_confirmed'||msg.includes('not confirmed'))return '이메일 인증이 안 된 계정이에요. Supabase → Authentication → Users에서 이 계정을 눌러 Confirm 해주세요.';
+  if(code==='invalid_credentials'||msg.includes('invalid login'))return '이메일 또는 비밀번호가 맞지 않아요.';
+  if(code==='over_request_rate_limit'||error.status===429)return '시도가 너무 많아요. 잠시 후 다시 해주세요.';
+  if(msg.includes('fetch')||msg.includes('network'))return '서버에 연결하지 못했어요. 인터넷 연결을 확인해주세요.';
+  return '로그인하지 못했어요: '+(error.message||'알 수 없는 오류');
+}
 async function logout(){
   const ok=await showConfirm('로그아웃','이 기기에서 로그아웃할까요? 이 기기에 저장된 백업도 함께 지워져요.','로그아웃');
   if(!ok)return;
-  try{await getSupabase()?.auth.signOut();}catch(e){}
+  try{await getSupabase()?.auth.signOut({scope:'local'});}catch(e){console.warn('signOut',e);}
+  try{Object.keys(localStorage).filter(k=>k.startsWith('sb-')&&k.endsWith('-auth-token')).forEach(k=>localStorage.removeItem(k));}catch(e){}
   try{localStorage.removeItem('library_backup');}catch(e){}
   location.reload();
 }
@@ -191,7 +200,8 @@ async function loadFromDB(){
     }else{
       // 행이 안 보이면(첫 사용, 또는 권한 없음) 빈 서재로 덮어쓰지 않는다
       const migrated=await tryMigrateFromIndexedDB();
-      if(migrated)await saveData();else books=[];
+      if(migrated)await saveData();
+      else{books=[];if(_userId)showConfirm('서재 데이터가 보이지 않아요','로그인은 됐지만 이 계정으로는 서재 데이터를 읽을 권한이 없어요. 접근 권한 SQL에 넣은 UID가 이 계정의 UID와 같은지 확인해주세요.\n\n이 계정 UID: '+_userId,'확인');}
     }
   }catch(e){
     console.error('loadFromDB(Supabase) 오류:',e);
@@ -586,7 +596,7 @@ function initBgTheme(){
 }
 function applyBgTheme(id){document.body.className=document.body.className.replace(/theme-\S+/g,'').trim();if(id!=='default')document.body.classList.add('theme-'+id);}
 function applyFont(id){const all=[...BUILTIN_FONTS,...userFonts];const f=all.find(x=>x.id===id)||BUILTIN_FONTS[0];document.body.style.setProperty('--font-body',f.css);}
-function openSettings(){renderThemeGrid();renderFontList();renderShareSettings();const ae=document.getElementById('accountEmail');if(ae)ae.textContent=_userEmail||'로그인 정보 없음';document.getElementById('settingsOv').classList.add('open');}
+function openSettings(){renderThemeGrid();renderFontList();renderShareSettings();const ae=document.getElementById('accountEmail');if(ae)ae.textContent=_userEmail?`${_userEmail} (UID ${_userId})`:'로그인 정보 없음';document.getElementById('settingsOv').classList.add('open');}
 function closeSettings(){document.getElementById('settingsOv').classList.remove('open');}
 function renderThemeGrid(){const el=document.getElementById('themeGrid');el.innerHTML=BG_THEMES.map(t=>`<div class="theme-swatch${t.id===currentBgTheme?' active':''}" onclick="selectBgTheme('${t.id}')"><div class="theme-circle" style="background:linear-gradient(135deg,${t.colors[0]},${t.colors[1]})"></div><span class="theme-name">${t.name}</span></div>`).join('');}
 function selectBgTheme(id){currentBgTheme=id;localStorage.setItem('myLib_bgTheme',id);applyBgTheme(id);renderThemeGrid();}
