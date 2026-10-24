@@ -35,6 +35,10 @@ const SUPABASE_URL='https://gnwdcjdmtrwnbjbpswuh.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdud2RjamRtdHJ3bmJqYnBzd3VoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk4NDE3OTMsImV4cCI6MjEwNTQxNzc5M30.ruGk6emBXdz4PCif06ZGX8zx0vC6rrBdfSpHK_Rdz40';
 const SUPABASE_TABLE='library_data';
 const SUPABASE_ROW_ID='main';
+const SUPABASE_PUBLIC_ROW='public';
+// 보여주기 링크(?view=1)로 열면 공개용 사본만 읽고, 아무것도 저장하지 않는다
+const VIEW_MODE=new URLSearchParams(location.search).get('view')==='1';
+let _viewLib=null;
 const RIDI_PROXY_URL=SUPABASE_URL+'/functions/v1/ridifetch';
 let sb=null;
 function getSupabase(){
@@ -69,13 +73,53 @@ function normalizeBook(b){
 }
 
 async function saveData(){
+  if(VIEW_MODE)return;
   const payload={books,appSettings};
   try{localStorage.setItem('library_backup',JSON.stringify(payload));}catch(e){}
   const client=getSupabase();if(!client)return;
   try{
     const{error}=await client.from(SUPABASE_TABLE).upsert({id:SUPABASE_ROW_ID,value:payload,updated_at:new Date().toISOString()});
     if(error)throw error;
+    if(appSettings.shareEnabled)await publishPublic(client);
   }catch(e){console.error('saveData(Supabase) 오류:',e);showToast('저장 중 오류가 발생했어요. Supabase 연결/테이블 설정을 확인해주세요.');}
+}
+
+// ══════════════ 보여주기 모드 (공개용 사본) ══════════════
+const PUBLIC_HIDDEN_FIELDS=['memo','price','purchases','datebuy'];
+function buildPublicSnapshot(){
+  return{
+    books:books.map(b=>{const c={...b};PUBLIC_HIDDEN_FIELDS.forEach(k=>delete c[k]);return c;}),
+    appSettings:{profile:appSettings.profile||{},yearlyGoal:appSettings.yearlyGoal||0,readDays:appSettings.readDays||[]},
+    libName:localStorage.getItem('myLib_libName')||'나의 서재',
+    libEmoji:localStorage.getItem('myLib_libEmoji')||'📚'
+  };
+}
+async function publishPublic(client){
+  const{error}=await client.from(SUPABASE_TABLE).upsert({id:SUPABASE_PUBLIC_ROW,value:buildPublicSnapshot(),updated_at:new Date().toISOString()});
+  if(error)throw error;
+}
+async function unpublishPublic(){
+  const client=getSupabase();if(!client)return;
+  const{error}=await client.from(SUPABASE_TABLE).upsert({id:SUPABASE_PUBLIC_ROW,value:null,updated_at:new Date().toISOString()});
+  if(error){console.error('unpublish 오류:',error);showToast('공개 사본을 지우지 못했어요.');}
+}
+function shareLink(){return location.origin+location.pathname+'?view=1';}
+function renderShareSettings(){
+  const on=!!appSettings.shareEnabled;
+  const t=document.getElementById('shareToggle');if(t)t.checked=on;
+  const row=document.getElementById('shareLinkRow');if(row)row.hidden=!on;
+  const inp=document.getElementById('shareLinkInput');if(inp)inp.value=shareLink();
+}
+async function toggleShare(on){
+  appSettings.shareEnabled=on;
+  renderShareSettings();
+  await saveData();
+  if(!on)await unpublishPublic();
+  showToast(on?'보여주기 링크를 켰어요. 링크를 복사해서 보내보세요.':'보여주기 링크를 껐어요. 이제 링크로 열어도 서재가 보이지 않아요.');
+}
+function copyShareLink(){
+  const inp=document.getElementById('shareLinkInput');
+  navigator.clipboard.writeText(shareLink()).then(()=>showToast('링크를 복사했어요!')).catch(()=>{if(inp){inp.focus();inp.select();}showToast('링크를 길게 눌러 복사해주세요.');});
 }
 
 async function tryMigrateFromIndexedDB(){
@@ -93,6 +137,18 @@ async function tryMigrateFromIndexedDB(){
 async function loadFromDB(){
   const client=getSupabase();
   if(!client){books=[];return;}
+  if(VIEW_MODE){
+    try{
+      const{data,error}=await client.from(SUPABASE_TABLE).select('value').eq('id',SUPABASE_PUBLIC_ROW).maybeSingle();
+      if(error)throw error;
+      const v=data&&data.value;
+      if(!v){books=[];showToast('공개된 서재가 없어요.');return;}
+      books=(v.books||[]).map(normalizeBook);
+      appSettings={...appSettings,...(v.appSettings||{})};
+      _viewLib={name:v.libName||'나의 서재',emoji:v.libEmoji||'📚'};
+    }catch(e){console.error('공개 서재 불러오기 오류:',e);books=[];showToast('서재를 불러오지 못했어요.');}
+    return;
+  }
   try{
     const{data,error}=await client.from(SUPABASE_TABLE).select('value').eq('id',SUPABASE_ROW_ID).maybeSingle();
     if(error)throw error;
@@ -136,7 +192,7 @@ function loadFilterState(){try{const s=JSON.parse(sessionStorage.getItem('myLib_
 // ── 다크모드 ──
 function initDark(){const dark=localStorage.getItem('myLib_dark')==='1';document.body.classList.toggle('dark',dark);const btn=document.getElementById('themeBtn');if(btn)btn.textContent=dark?'☀️':'🌙';}
 function toggleDark(){const isDark=document.body.classList.toggle('dark');localStorage.setItem('myLib_dark',isDark?'1':'0');const btn=document.getElementById('themeBtn');if(btn)btn.textContent=isDark?'☀️':'🌙';}
-async function toggleFav(id){const b=books.find(x=>x.id===id);if(!b)return;b.fav=!b.fav;await saveData();render();}
+async function toggleFav(id){if(VIEW_MODE)return;const b=books.find(x=>x.id===id);if(!b)return;b.fav=!b.fav;await saveData();render();}
 function toggleFavFilter(){showFavOnly=!showFavOnly;document.getElementById('favPill')?.classList.toggle('active',showFavOnly);render();}
 
 // ══════════════ roundRect 폴리필 ══════════════
@@ -279,6 +335,7 @@ function _renderMlTypeTag(id,tag,wrap){const span=document.createElement('span')
 // ══════════════ PAGE SWITCH ══════════════
 let _currentPage='home',_prevPage='home';
 function switchPage(id){
+  if(VIEW_MODE&&id==='ledger')id='home';
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id==='page-'+id));
   const navId=id==='detail'?_prevPage:id;
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.toggle('active',t.dataset.page===navId));
@@ -496,7 +553,7 @@ function initBgTheme(){
 }
 function applyBgTheme(id){document.body.className=document.body.className.replace(/theme-\S+/g,'').trim();if(id!=='default')document.body.classList.add('theme-'+id);}
 function applyFont(id){const all=[...BUILTIN_FONTS,...userFonts];const f=all.find(x=>x.id===id)||BUILTIN_FONTS[0];document.body.style.setProperty('--font-body',f.css);}
-function openSettings(){renderThemeGrid();renderFontList();document.getElementById('settingsOv').classList.add('open');}
+function openSettings(){renderThemeGrid();renderFontList();renderShareSettings();document.getElementById('settingsOv').classList.add('open');}
 function closeSettings(){document.getElementById('settingsOv').classList.remove('open');}
 function renderThemeGrid(){const el=document.getElementById('themeGrid');el.innerHTML=BG_THEMES.map(t=>`<div class="theme-swatch${t.id===currentBgTheme?' active':''}" onclick="selectBgTheme('${t.id}')"><div class="theme-circle" style="background:linear-gradient(135deg,${t.colors[0]},${t.colors[1]})"></div><span class="theme-name">${t.name}</span></div>`).join('');}
 function selectBgTheme(id){currentBgTheme=id;localStorage.setItem('myLib_bgTheme',id);applyBgTheme(id);renderThemeGrid();}
@@ -550,6 +607,7 @@ function deleteUserFont(id){userFonts=userFonts.filter(f=>f.id!==id);if(currentF
 const LIB_EMOJIS=['📚','🔖','📖','✨','💫','🌸','🌷','🌺','💐','🍀','🌿','☘️','🦋','🌙','⭐','💖','💜','💙','🩷','🍵','☕','🕯️','🎀'];
 let selectedLibEmoji=localStorage.getItem('myLib_libEmoji')||'📚';
 function openLibName(){
+  if(VIEW_MODE)return;
   selectedLibEmoji=localStorage.getItem('myLib_libEmoji')||'📚';
   document.getElementById('libNameInput').value=localStorage.getItem('myLib_libName')||'나의 서재';
   const grid=document.getElementById('emojiGrid');
@@ -560,7 +618,7 @@ function closeLibName(){document.getElementById('libNameOv').classList.remove('o
 function selectLibEmoji(e){selectedLibEmoji=e;document.querySelectorAll('.emoji-btn').forEach(btn=>btn.classList.toggle('sel',btn.textContent===e));updateLibPreview();}
 function updateLibPreview(){document.getElementById('libNamePreviewEmoji').textContent=selectedLibEmoji;document.getElementById('libNamePreviewText').textContent=document.getElementById('libNameInput').value||'나의 서재';}
 function saveLibName(){const name=document.getElementById('libNameInput').value.trim()||'나의 서재';localStorage.setItem('myLib_libName',name);localStorage.setItem('myLib_libEmoji',selectedLibEmoji);updateLogo();closeLibName();showToast('서재 이름이 바뀌었어요!');}
-function updateLogo(){const emoji=localStorage.getItem('myLib_libEmoji')||'📚',name=localStorage.getItem('myLib_libName')||'나의 서재';const eEl=document.getElementById('logoEmoji'),nEl=document.getElementById('logoName');if(eEl)eEl.textContent=emoji;if(nEl){const parts=name.split(' ');if(parts.length>1){nEl.innerHTML=escHtml(parts.slice(0,-1).join(' '))+' <em>'+escHtml(parts[parts.length-1])+'</em>';}else nEl.innerHTML='<em>'+escHtml(name)+'</em>';}}
+function updateLogo(){const emoji=_viewLib?_viewLib.emoji:(localStorage.getItem('myLib_libEmoji')||'📚'),name=_viewLib?_viewLib.name:(localStorage.getItem('myLib_libName')||'나의 서재');const eEl=document.getElementById('logoEmoji'),nEl=document.getElementById('logoName');if(eEl)eEl.textContent=emoji;if(nEl){const parts=name.split(' ');if(parts.length>1){nEl.innerHTML=escHtml(parts.slice(0,-1).join(' '))+' <em>'+escHtml(parts[parts.length-1])+'</em>';}else nEl.innerHTML='<em>'+escHtml(name)+'</em>';}}
 
 // ══════════════ 공통 ══════════════
 function ovClick(e,ovId,closeFn){if(e.target.id===ovId)closeFn();}

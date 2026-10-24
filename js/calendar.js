@@ -26,14 +26,14 @@ function renderCalendar(){
     const dateStr=`${year}-${monthStr}-${String(d).padStart(2,'0')}`;
     const list=dayMap[d]||[];
     const dow=(firstDay+d-1)%7;
-    const inStreak=streakDates.has(dateStr)&&(streakDates.has(localDate(new Date(year,month,d-1)))||streakDates.has(localDate(new Date(year,month,d+1))));
+    const isRead=streakDates.has(dateStr);
     let cls='cal-day';
     if(list.length) cls+=' has-book';
-    if(inStreak) cls+=' streak';
+    if(isRead) cls+=' streak';
     if(dateStr===todayStr) cls+=' today';
     if(dow===0) cls+=' sun';
     if(dow===6) cls+=' sat';
-    const click=list.length===1?` onclick="openDetail('${list[0].id}')"`:list.length>1?` onclick="scrollToCalBooks()"`:'';
+    const click=list.length===1?` onclick="openDetail('${list[0].id}')"`:list.length>1?` onclick="scrollToCalBooks()"`:(!VIEW_MODE&&dateStr<=todayStr?` onclick="toggleReadDay('${dateStr}')" title="눌러서 읽은 날로 표시/해제"`:'');
     const label=list.length?` title="${escHtml(list.map(b=>b.title).join(', '))}"`:'';
     const covers=list.length?`<div class="cal-covers">${list.slice(0,list.length>2?1:2).map(b=>coverHtml(b)).join('')}${list.length>2?`<span class="cal-more">+${list.length-1}</span>`:''}</div>`:'';
     gridHtml+=`<div class="${cls}"${click}${label}><span class="cal-num">${d}</span>${covers}</div>`;
@@ -50,10 +50,17 @@ function renderCalendar(){
   renderStreak();
 }
 
+// 읽기 시작·완독·재독·하차한 날은 자동으로 '읽은 날'
+function autoReadDays(){
+  const set=new Set();
+  books.forEach(b=>{
+    [b.datestart,b.dateend,b.dnfDate,...(b.rereads||[]).map(r=>r.date)].forEach(d=>{if(d)set.add(String(d).slice(0,10));});
+  });
+  return set;
+}
 function calcStreaks(){
-  const done=books.filter(b=>b.status==='완독'&&b.dateend);
-  const dateSet=new Set();
-  done.forEach(b=>{const d=b.dateend.slice(0,10);if(d)dateSet.add(d);});
+  const dateSet=autoReadDays();
+  (appSettings.readDays||[]).forEach(d=>dateSet.add(d));
 
   const today=new Date();
   today.setHours(0,0,0,0);
@@ -103,12 +110,30 @@ function renderStreak(){
   const el=document.getElementById('streakCard');
   if(!el) return;
   const s=calcStreaks();
+  const today=localDate();
+  const readToday=s.dateSet.has(today);
   const badges=[7,14,30,50,100].map(m=>`<span class="chip${s.longestStreak>=m?' got':''}">${m}일${s.longestStreak>=m?' 달성':''}</span>`).join('');
   el.innerHTML=`<span class="streak-label">연속 독서</span>
     <div class="streak-big">${s.currentStreak}<small>일째</small></div>
-    <div class="streak-sub"><span>최장 ${s.longestStreak}일</span><span>이번 달 ${s.monthReadDays}일 완독</span></div>
+    <div class="streak-sub"><span>최장 ${s.longestStreak}일</span><span>이번 달 ${s.monthReadDays}일 읽음</span></div>
     <div class="streak-badges">${badges}</div>
-    ${s.currentStreak===0?'<span class="streak-sub">오늘 책을 완독하면 연속 기록이 시작돼요</span>':''}`;
+    ${VIEW_MODE?'':readTodayBtn(readToday,'ink-btn')}
+    ${!VIEW_MODE?'<span class="streak-sub">지난 날짜는 캘린더 칸을 눌러 채울 수 있어요</span>':''}`;
+}
+
+function readTodayBtn(readToday,cls){
+  return`<button class="${cls}${readToday?' on':''}" onclick="toggleReadDay('${localDate()}')">${readToday?'✓ 오늘 읽었어요':'오늘 읽었어요'}</button>`;
+}
+
+function toggleReadDay(date){
+  if(VIEW_MODE)return;
+  const manual=new Set(appSettings.readDays||[]);
+  if(!manual.has(date)&&autoReadDays().has(date)){showToast('이 날은 시작·완독·재독 기록이 있어서 자동으로 읽은 날이에요.');return;}
+  if(manual.has(date))manual.delete(date);else manual.add(date);
+  appSettings.readDays=[...manual].sort();
+  saveData();
+  if(_currentPage==='calendar')renderCalendar();
+  if(_currentPage==='home')renderHome();
 }
 
 function renderGoal(){

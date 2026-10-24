@@ -55,7 +55,7 @@ function renderStats(){
     h+=`<section class="card"><div class="card-head"><span class="card-h">${goal?`올해 목표 ${goal}권`:'올해 목표'}</span><span class="profile-sub">${goal?`<b style="color:var(--txt)">${done.length}권</b> · ${pct}%`:''}</span></div>
       ${goal?`<div class="progress${pct>=100?' done':''}"><div style="width:${pct}%"></div></div>`:''}
       <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><span class="hint">${pace}</span>
-      <span class="inline-edit"><input type="number" id="statsGoalInput" min="0" max="999" placeholder="목표 권수" value="${goal||''}" aria-label="목표 권수"><button class="btn sm" onclick="saveGoalValue(document.getElementById('statsGoalInput').value)">저장</button></span></div></section>`;
+      <span class="inline-edit owner-only"><input type="number" id="statsGoalInput" min="0" max="999" placeholder="목표 권수" value="${goal||''}" aria-label="목표 권수"><button class="btn sm" onclick="saveGoalValue(document.getElementById('statsGoalInput').value)">저장</button></span></div></section>`;
   }
 
   const genres=countMap(done,b=>b.genre||[]);
