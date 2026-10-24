@@ -20,30 +20,31 @@
       <button class="nav-tab" data-page="library" onclick="switchPage('library')">책장</button>
       <button class="nav-tab" data-page="excerpts" onclick="switchPage('excerpts')">발췌함</button>
       <button class="nav-tab" data-page="stats" onclick="switchPage('stats')">통계</button>
-      <button class="nav-tab" data-page="ledger" onclick="switchPage('ledger')">가계부</button>
+      <button class="nav-tab owner-only" data-page="ledger" onclick="switchPage('ledger')">가계부</button>
       <button class="nav-tab" data-page="calendar" onclick="switchPage('calendar')">캘린더</button>
     </nav>
     <div class="hd-actions">
       <div class="header-icons">
         <button class="icon-btn" onclick="openRandomBook()" title="오늘의 책" aria-label="오늘의 책">🎲</button>
-        <button class="icon-btn" onclick="openSettings()" title="테마/폰트" aria-label="테마와 폰트 설정">⚙</button>
+        <button class="icon-btn owner-only" onclick="openSettings()" title="테마/폰트" aria-label="테마와 폰트 설정">⚙</button>
         <button class="icon-btn" id="themeBtn" onclick="toggleDark()" title="다크 모드" aria-label="다크 모드">🌙</button>
-        <button class="icon-btn" onclick="openJsonMenu()" title="데이터 내보내기/불러오기" aria-label="데이터 내보내기/불러오기">⇅</button>
+        <button class="icon-btn owner-only" onclick="openJsonMenu()" title="데이터 내보내기/불러오기" aria-label="데이터 내보내기/불러오기">⇅</button>
       </div>
       <div style="position:relative">
         <button class="icon-btn more-btn" id="moreBtn" onclick="toggleMoreMenu()" aria-label="더보기">⋯</button>
         <div class="more-menu" id="moreMenu">
           <button class="more-menu-item" onclick="closeMoreMenu();openRandomBook()">🎲 오늘의 책</button>
-          <button class="more-menu-item" onclick="closeMoreMenu();openSettings()">⚙ 테마 / 폰트</button>
+          <button class="more-menu-item owner-only" onclick="closeMoreMenu();openSettings()">⚙ 테마 / 폰트</button>
           <button class="more-menu-item" onclick="closeMoreMenu();toggleDark()">🌙 다크 모드</button>
-          <button class="more-menu-item" onclick="closeMoreMenu();openJsonMenu()">⇅ 데이터 내보내기/불러오기</button>
+          <button class="more-menu-item owner-only" onclick="closeMoreMenu();openJsonMenu()">⇅ 데이터 내보내기/불러오기</button>
         </div>
       </div>
-      <button class="hbtn primary" onclick="openAdd()">+ 책 추가</button>
+      <button class="hbtn primary owner-only" onclick="openAdd()">+ 책 추가</button>
     </div>
   </div>
 </header>
 <main class="main">
+  <div class="view-banner" id="viewBanner" hidden></div>
   <div class="page active" id="page-home"><div id="homeContent" style="display:contents"></div></div>
 
   <div class="page" id="page-library">
@@ -90,12 +91,12 @@
         </div>
         <div class="cal-grid" id="calDaysHeader"></div>
         <div class="cal-grid" id="calDays"></div>
-        <div class="cal-legend"><span><i style="background:var(--amber-bg)"></i>연속 독서일</span><span><i style="border:2px solid var(--acc)"></i>오늘</span></div>
+        <div class="cal-legend"><span><i style="background:var(--amber-bg)"></i>읽은 날</span><span><i style="border:2px solid var(--acc)"></i>오늘</span></div>
       </section>
       <aside class="cal-side">
         <section class="ink-card streak-card" id="streakCard"></section>
         <section class="card" id="goalCard">
-          <div class="card-head"><span class="card-h">올해 목표</span><button class="link-btn" id="goalEditBtn" onclick="toggleGoalEdit()">수정</button></div>
+          <div class="card-head"><span class="card-h">올해 목표</span><button class="link-btn owner-only" id="goalEditBtn" onclick="toggleGoalEdit()">수정</button></div>
           <div id="goalDisplay" style="display:flex;flex-direction:column;gap:8px">
             <div class="goal-numbers"><b id="goalDoneNum">0</b> / <span id="goalTargetNum">—</span>권 <span class="hint" id="goalPct"></span></div>
             <div class="progress" id="goalTrack"><div id="goalBar" style="width:0%"></div></div>
@@ -320,8 +321,17 @@
 <!-- SETTINGS MODAL -->
 <div class="ov" id="settingsOv" onclick="ovClick(event,'settingsOv',closeSettings)">
 <div class="modal" style="max-width:500px;max-height:85vh">
-  <div class="modal-head"><h2>⚙ 테마 / 폰트 설정</h2><button class="btn-x" onclick="closeSettings()">✕</button></div>
+  <div class="modal-head"><h2>⚙ 설정</h2><button class="btn-x" onclick="closeSettings()">✕</button></div>
   <div class="modal-body" style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="sec-label">보여주기 모드</div>
+      <p class="hint">친구에게 내 서재를 보여주는 읽기 전용 링크예요. 메모, 가격, 구매일, 추가 구매, 가계부는 빠지고 수정 버튼도 숨겨져요.</p>
+      <label class="switch-row"><input type="checkbox" id="shareToggle" onchange="toggleShare(this.checked)"> 보여주기 링크 켜기</label>
+      <div id="shareLinkRow" hidden style="display:flex;flex-direction:column;gap:6px">
+        <div class="cover-url-row"><input type="text" id="shareLinkInput" readonly aria-label="보여주기 링크"><button class="cover-url-btn" onclick="copyShareLink()">복사</button><a class="cover-url-btn" href="?view=1" target="_blank" rel="noopener" style="text-decoration:none">미리보기</a></div>
+        <p class="hint">켜두는 동안 책을 저장할 때마다 공개용 사본도 함께 갱신돼요. 끄면 링크로 열어도 서재가 보이지 않아요.</p>
+      </div>
+    </div>
     <div><div class="sec-label">배경 테마</div><div class="theme-grid" id="themeGrid"></div></div>
     <div>
       <div class="sec-label">폰트</div>
@@ -398,9 +408,11 @@ if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
 document.addEventListener('DOMContentLoaded',async()=>{
+  if(VIEW_MODE)document.body.classList.add('view-mode');
   initDark();
   initBgTheme();
   await loadFromDB();
+  if(VIEW_MODE){const vb=document.getElementById('viewBanner');vb.textContent=`${(appSettings.profile&&appSettings.profile.name)||(_viewLib&&_viewLib.name)||'친구'}님의 서재를 구경하는 중이에요 · 읽기 전용`;vb.hidden=false;}
   loadFilterState();
   render();
   switchPage('home');

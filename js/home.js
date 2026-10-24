@@ -25,8 +25,9 @@ function renderHome(){
     <div class="card profile-card">
       <div class="avatar">${avatar}</div>
       <div class="profile-info">
-        <div class="profile-name">${escHtml(p.name||libName)}<button class="edit-mini" onclick="openProfile()">편집</button></div>
+        <div class="profile-name">${escHtml(p.name||libName)}<button class="edit-mini owner-only" onclick="openProfile()">편집</button></div>
         <div class="profile-sub">올해 ${doneYear}권 완독${streak?` · ${streak}일 연속 독서 중`:''}</div>
+        ${VIEW_MODE?'':`<div>${readTodayBtn(calcStreaks().dateSet.has(localDate()),'read-btn')}</div>`}
         ${p.intro?`<div class="profile-intro">${escHtml(p.intro)}</div>`:(p.name?'':`<div class="profile-intro">편집을 눌러 이름, 사진, 한 줄 소개를 넣어보세요.</div>`)}
         ${tags?`<div class="profile-tags">${tags}</div>`:''}
       </div>
@@ -35,7 +36,7 @@ function renderHome(){
   </section>`;
 
   if(!books.length){
-    h+=`<section class="card" style="align-items:flex-start"><div class="card-h">서재가 비어 있어요</div><p class="hint">첫 책을 추가하면 홈에 읽는 중인 책과 최근 완독한 책이 보여요.</p><button class="btn primary" onclick="openAdd()">+ 책 추가</button></section>`;
+    h+=`<section class="card" style="align-items:flex-start"><div class="card-h">서재가 비어 있어요</div><p class="hint">첫 책을 추가하면 홈에 읽는 중인 책과 최근 완독한 책이 보여요.</p><button class="btn primary owner-only" onclick="openAdd()">+ 책 추가</button></section>`;
     c.innerHTML=h;return;
   }
 
