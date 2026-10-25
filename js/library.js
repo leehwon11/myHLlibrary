@@ -84,7 +84,7 @@ function onDrop(e,targetId){
 function applyCoverUrl(){const inp=document.getElementById('coverUrlInput');if(!inp)return;const url=inp.value.trim();if(!url){showToast('URL을 입력해주세요.');return;}currentCover=url;document.getElementById('coverBox').innerHTML=`<img src="${currentCover}" alt="" onerror="this.parentNode.innerHTML='<div class=\\'cover-hint\\'><span class=\\'ci\\'>⚠️</span>이미지를 불러올 수 없어요</div>'">`;inp.value='';showToast('표지 URL이 적용됐어요!');}
 
 // ══════════════ EDIT MODAL ══════════════
-function openAdd(){if(VIEW_MODE)return;editId=null;currentCover=null;currentStar=0;currentStatusVal='읽고싶어요';excerptsData=[];currentCtagsSojai=[];currentCtagsRel=[];currentFlTypeTags=[];currentGenreTags=[];currentMoods=[];mlData=[];rereadData=[];document.getElementById('editModalTitle').textContent='책 추가';document.getElementById('delBtn').style.display='none';clearForm();renderExcerpts();updateStatusUI();renderTagsSojai();renderTagsRel();renderFlTypeTags();renderMoodSelector();renderGenreTags();renderStarPicker();document.getElementById('editOv').classList.add('open');}
+function openAdd(){if(VIEW_MODE)return;editId=null;currentCover=null;currentStar=0;currentStatusVal='읽고싶어요';excerptsData=[];currentCtagsSojai=[];currentCtagsRel=[];currentFlTypeTags=[];currentGenreTags=[];currentMoods=[];mlData=[];rereadData=[];document.getElementById('editModalTitle').textContent='책 추가';document.getElementById('delBtn').style.display='none';clearForm();renderExcerpts();updateStatusUI();renderTagsSojai();renderTagsRel();renderFlTypeTags();renderMoodSelector();renderGenreTags();renderStarPicker();document.getElementById('editOv').classList.add('open');document.querySelector('#editOv .modal-body').scrollTop=0;}
 function openEdit(id){
   if(VIEW_MODE)return;
   const b=books.find(x=>x.id===id);if(!b)return;
@@ -106,9 +106,10 @@ function openEdit(id){
   document.getElementById('coverBox').innerHTML=currentCover?`<img src="${currentCover}" alt="">`:'<div class="cover-hint"><span class="ci">🔗</span>아래에<br>이미지 URL을 입력하세요</div>';
   renderStarPicker();updateStatusUI();renderExcerpts();
   ['f-summary','f-review','f-memo','f-fl-intro'].forEach(id=>autosizeEl(document.getElementById(id)));
-  document.getElementById('editOv').classList.add('open');
+  document.getElementById('editOv').classList.add('open');document.querySelector('#editOv .modal-body').scrollTop=0;
 }
 function clearForm(){['f-title','f-author','f-summary','f-review','f-memo','f-platform','f-platformurl','f-price','f-datebuy','f-datestart','f-dateend','f-fl-name','f-fl-age','f-fl-intro','f-dnf-at','f-dnf-date','f-dnf-reason'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});rereadData=[];renderRereadList();purchasesData=[];renderPurchaseList();currentGenreTags=[];renderGenreTags();mlData=[];renderMlAcc();document.getElementById('f-booktype').value='';document.getElementById('f-agerating').value='';document.getElementById('coverBox').innerHTML='<div class="cover-hint"><span class="ci">🔗</span>아래에<br>이미지 URL을 입력하세요</div>';currentCtagsSojai=[];currentCtagsRel=[];currentFlTypeTags=[];renderTagsSojai();renderTagsRel();renderFlTypeTags();updateStarUI();['f-summary','f-review','f-memo','f-fl-intro'].forEach(id=>autosizeEl(document.getElementById(id)));}
+function jumpEdit(id){const el=document.getElementById(id);if(el)el.scrollIntoView({block:'start',behavior:'smooth'});}
 function closeEdit(){document.getElementById('editOv').classList.remove('open');}
 function removeCover(){currentCover=null;document.getElementById('coverBox').innerHTML='<div class="cover-hint"><span class="ci">🔗</span>아래에<br>이미지 URL을 입력하세요</div>';}
 function setStar(n){currentStar=n;updateStarUI();}

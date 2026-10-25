@@ -83,7 +83,7 @@ function renderLedger(){
   </div>`;
 
   h+=`<div class="lg-card"><div class="lg-card-head"><h3>월별 지출</h3><span class="lg-hint">막대를 누르면 그달 내역이 보여요</span></div>
-    <div class="lg-months">${monthly.map((m,i)=>`<button class="lg-month${i===_ledgerMonth?' on':''}" onclick="_ledgerMonth=${i};renderLedger()" aria-label="${i+1}월 ${won(m.amount)}"><span class="lg-month-val">${m.amount?(m.amount>=10000?Math.round(m.amount/1000)/10+'만':m.amount.toLocaleString('ko-KR')):''}</span><span class="lg-month-bar" style="height:${m.amount?Math.max(4,Math.round(m.amount/maxM*140)):2}px"></span><span class="lg-month-label">${i+1}월</span></button>`).join('')}</div>
+    <div class="lg-months">${monthly.map((m,i)=>`<button class="lg-month${i===_ledgerMonth?' on':''}" onclick="_ledgerMonth=${i};renderLedger()" aria-label="${i+1}월 ${won(m.amount)}"><span class="lg-month-val">${m.amount?(m.amount>=10000?Math.round(m.amount/1000)/10+'만':m.amount.toLocaleString('ko-KR')):''}</span><span class="lg-month-bar" style="height:${m.amount?Math.max(4,Math.round(m.amount/maxM*140)):2}px"></span><span class="lg-month-label">${i+1}<span class="m-unit">월</span></span></button>`).join('')}</div>
   </div>`;
 
   h+=`<div class="lg-grid">

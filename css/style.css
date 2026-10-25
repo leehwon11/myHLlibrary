@@ -488,6 +488,14 @@ body.dark .heatmap-cell.lv1{background:#4d2b3b}body.dark .heatmap-cell.lv2{backg
 .auth-form{display:flex;flex-direction:column;gap:12px}
 .code-input{font-size:24px!important;letter-spacing:.4em;text-align:center;font-variant-numeric:tabular-nums}
 
+/* ── 책 수정 폼 ── */
+.cover-col{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0;width:100%}
+.edit-nav{display:flex;gap:6px;overflow-x:auto;padding:8px 22px;border-bottom:1px solid var(--line);scrollbar-width:none;flex-shrink:0}
+.edit-nav::-webkit-scrollbar{display:none}
+.edit-nav button{flex-shrink:0;font-size:13px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--txt2);cursor:pointer;min-height:34px}
+.edit-nav button:hover{color:var(--acc);border-color:var(--acc2)}
+#editOv .sec-label,#editOv .fg[id]{scroll-margin-top:12px}
+
 /* ── 반응형 ── */
 @media(max-width:900px){
   .main-nav{order:3;flex-basis:100%;overflow-x:auto;margin:0 -8px;padding:0 8px;scrollbar-width:none}
@@ -517,5 +525,36 @@ body.dark .heatmap-cell.lv1{background:#4d2b3b}body.dark .heatmap-cell.lv2{backg
   .ov{padding:0;align-items:flex-end}.modal{border-radius:18px 18px 0 0;max-height:92vh;animation:slideUpSheet .2s}
   .cal-day{min-height:58px;border-radius:6px}.cal-covers .cover{width:22px}.cal-more{font-size:9px}
   .toast{right:14px;left:14px;bottom:14px;text-align:center}
+}
+@media(max-width:700px){
+  /* iOS는 16px보다 작은 입력칸을 누르면 화면을 확대하므로 16px로 맞춘다 */
+  .fg input,.fg select,.fg textarea,.ctag-input-row input,.cover-url-row input,.purchase-input,.goal-set-input,.inline-edit input,.lg-budget-edit input,.search-wrap input,.reread-item input{font-size:16px!important}
+  .edit-ov .modal{max-width:none!important;width:100%;height:100dvh;max-height:100dvh!important;border-radius:0;animation:fadeIn .15s}
+  .edit-ov .modal-head{padding:10px 14px}
+  .edit-nav{padding:8px 14px}
+  .edit-ov .modal-body{padding:16px 14px 28px}
+  .edit-ov .modal-foot{padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px))}
+  .form-grid{grid-template-columns:minmax(0,1fr)!important}
+  .row2,.row3{grid-template-columns:minmax(0,1fr)!important}
+  .fg,.fl-col,.ctag-wrap{min-width:0}
+  .cover-col{min-width:0;display:grid;grid-template-columns:96px minmax(0,1fr);column-gap:12px;row-gap:8px;align-items:start}
+  .cover-col>.cover-box{grid-row:1 / span 3;width:96px}
+  .cover-col>*:not(.cover-box){grid-column:2}
+  .cover-col .cover-hint{font-size:10px;padding:4px}
+  .cover-col .cover-url-row{margin-top:0}
+  .quick-tags{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .quick-tags::-webkit-scrollbar{display:none}
+  .quick-tag-chip{flex-shrink:0;min-height:34px;font-size:13px;padding:4px 12px}
+  .quick-tags-label{flex-shrink:0}
+  .ctag-add-btn,.cover-url-btn{min-height:42px;min-width:42px}
+  .exc-del,.ml-acc-del,.reread-del,.stag-del{min-width:36px;min-height:36px}
+  .st-opt,.mood-opt,.exc-speaker-opt{min-height:38px}
+  .sr-btn{font-size:30px;padding:2px}
+  .reread-item{gap:6px}.reread-item input[type=text],.reread-item .purchase-input[type=text]{flex:1 1 100%!important}
+  .mood-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .mood-cell{padding:8px 10px}.mood-cell span{font-size:13px}
+  .lg-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .lg-kpi-num{font-size:20px}
+  .m-unit{display:none}
 }
 @keyframes slideUpSheet{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}

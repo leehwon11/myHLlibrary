@@ -64,7 +64,7 @@ function renderStats(){
     const maxM=Math.max(...months,1);const curM=year===thisYear?new Date().getMonth():-1;
     h+=`<div class="cards-row"><section class="card wide"><span class="card-h">월별 완독</span>
       <div class="vbars">${months.map((n,i)=>`<div class="vbar${i===curM?' on':''}"><span class="vbar-val">${n||''}</span><div class="vbar-bar" style="height:${n?Math.max(4,Math.round(n/maxM*140)):2}px"></div></div>`).join('')}</div>
-      <div class="vbar-labels">${months.map((_,i)=>`<span>${i+1}월</span>`).join('')}</div></section>
+      <div class="vbar-labels">${months.map((_,i)=>`<span>${i+1}<span class="m-unit">월</span></span>`).join('')}</div></section>
       <section class="card"><div class="card-head"><span class="card-h">장르</span><span class="hint">${scope}</span></div>${hbarsHtml(genres)}</section></div>`;
   }else{
     h+=`<div class="cards-row"><section class="card"><div class="card-head"><span class="card-h">장르</span><span class="hint">${scope}</span></div>${hbarsHtml(genres)}</section></div>`;

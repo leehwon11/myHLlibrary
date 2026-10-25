@@ -6,7 +6,7 @@
 <title>나의 서재</title>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Serif+KR:wght@400;600&family=Noto+Sans+KR:wght@400;500;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<link rel="stylesheet" href="css/style.css?v=15">
+<link rel="stylesheet" href="css/style.css?v=16">
 </head>
 <body>
 <header class="site-header">
@@ -121,17 +121,25 @@
 </main>
 
 <!-- EDIT MODAL -->
-<div class="ov" id="editOv" onclick="ovClick(event,'editOv',closeEdit)">
+<div class="ov edit-ov" id="editOv" onclick="ovClick(event,'editOv',closeEdit)">
 <div class="modal" style="max-width:1000px;max-height:92vh">
-  <div class="modal-head"><h2 id="editModalTitle">책 추가</h2><button class="btn-x" onclick="closeEdit()">✕</button></div>
+  <div class="modal-head"><h2 id="editModalTitle">책 추가</h2><button class="btn-x" onclick="closeEdit()" aria-label="닫기">✕</button></div>
+  <nav class="edit-nav" aria-label="입력 항목 바로가기">
+    <button type="button" onclick="jumpEdit('sec-basic')">기본</button>
+    <button type="button" onclick="jumpEdit('sec-tags')">태그</button>
+    <button type="button" onclick="jumpEdit('sec-chars')">인물</button>
+    <button type="button" onclick="jumpEdit('sec-status')">상태·날짜</button>
+    <button type="button" onclick="jumpEdit('sec-review')">후기</button>
+    <button type="button" onclick="jumpEdit('sec-exc')">재독·발췌</button>
+  </nav>
   <div class="modal-body">
     <div class="form-grid">
-      <div style="display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0;overflow:hidden;width:100%">
+      <div class="cover-col">
         <div class="cover-box" id="coverBox">
           <div class="cover-hint"><span class="ci">🔗</span>아래에<br>이미지 URL을 입력하세요</div>
         </div>
         <div class="cover-acts">
-          <button class="btn sm danger" onclick="removeCover()">삭제</button>
+          <button class="btn sm danger" onclick="removeCover()">표지 삭제</button>
         </div>
         <div class="cover-url-row">
           <input type="url" id="coverUrlInput" placeholder="이미지 URL">
@@ -146,7 +154,7 @@
         </div>
       </div>
       <div class="fl-col">
-        <div class="sec-label">기본 정보</div>
+        <div class="sec-label" id="sec-basic">기본 정보</div>
         <div class="fg"><label>제목 *</label><input type="text" id="f-title" placeholder="책 제목"></div>
         <div class="row2">
           <div class="fg"><label>작가</label><input type="text" id="f-author" placeholder="저자명"></div>
@@ -174,7 +182,7 @@
           <div class="fg"><label>작품 URL</label><input type="url" id="f-platformurl" placeholder="https://..."></div>
           <div class="fg"><label>금액 (원)</label><input type="number" id="f-price" placeholder="0" min="0"></div>
         </div>
-        <div class="fg"><label>소재 태그</label>
+        <div class="fg" id="sec-tags"><label>소재 태그</label>
           <div class="ctag-wrap">
             <div class="ctag-input-row"><input type="text" id="ctagInputSojai" placeholder="#계약결혼, #환생 ..." oninput="showTagAC(this,addCtagFromInputSojai,'sojai')" onkeydown="if(event.key==='Enter'){event.preventDefault();addCtagFromInputSojai();hideTagAC();}" onblur="setTimeout(hideTagAC,150)"><button class="ctag-add-btn" onclick="addCtagFromInputSojai()">+</button></div>
             <div class="quick-tags" id="quickTagsSojai"></div>
@@ -189,7 +197,7 @@
           </div>
         </div>
         <div class="fg"><label>감정 태그</label><div class="mood-selector" id="moodSelector"></div></div>
-        <div class="fg"><label>남주 정보</label>
+        <div class="fg" id="sec-chars"><label>남주 정보</label>
           <div class="ml-acc-wrap" id="mlAccWrap"></div>
           <button class="add-ml-btn" onclick="addMlEntry()">💙 남주 추가</button>
         </div>
@@ -210,7 +218,7 @@
             <div class="fg"><label>소개</label><textarea id="f-fl-intro" rows="2" oninput="autosizeEl(this)"></textarea></div>
           </div>
         </div>
-        <div class="fg"><label>독서 상태</label>
+        <div class="fg" id="sec-status"><label>독서 상태</label>
           <div class="status-selector" id="statusSelector">
             <button class="st-opt" data-v="읽고싶어요" onclick="setStatus('읽고싶어요')">🔖 읽고 싶어요</button>
             <button class="st-opt" data-v="읽는중" onclick="setStatus('읽는중')">📖 읽는 중</button>
@@ -235,7 +243,7 @@
         <div class="sec-label" style="margin-top:2px">추가 구매 <span style="font-weight:400;text-transform:none;letter-spacing:0">(외전, 편당 결제 등)</span></div>
         <div class="reread-list" id="purchaseList"></div>
         <button class="add-reread-btn" onclick="addPurchase()">＋ 추가 구매 기록</button>
-        <div class="sec-label" style="margin-top:2px">후기</div>
+        <div class="sec-label" id="sec-review" style="margin-top:2px">후기</div>
         <div class="fg"><label>별점</label>
           <div class="star-row" id="starRow">
             <span class="star-label" id="starLabel"></span>
@@ -244,7 +252,7 @@
         <div class="fg"><label>줄거리</label><textarea id="f-summary" placeholder="간략한 줄거리..." rows="3" oninput="autosizeEl(this)"></textarea></div>
         <div class="fg"><label>총평</label><textarea id="f-review" placeholder="읽고 난 감상..." rows="3" oninput="autosizeEl(this)"></textarea></div>
         <div class="fg"><label>메모 <span style="font-size:10px;color:var(--txt4);font-weight:400">(스포일러, 개인 메모 등)</span></label><textarea id="f-memo" placeholder="스포일러나 개인 메모..." rows="2" oninput="autosizeEl(this)"></textarea></div>
-        <div class="sec-label" style="margin-top:2px">재독 기록</div>
+        <div class="sec-label" id="sec-exc" style="margin-top:2px">재독 기록</div>
         <div class="reread-list" id="rereadList"></div>
         <button class="add-reread-btn" onclick="addReread()">＋ 회독 추가</button>
         <div class="sec-label" style="margin-top:2px">발췌</div>
@@ -442,13 +450,13 @@
 </div>
 
 
-<script src="js/app.js?v=15"></script>
-<script src="js/library.js?v=15"></script>
-<script src="js/stats.js?v=15"></script>
-<script src="js/calendar.js?v=15"></script>
-<script src="js/ledger.js?v=15"></script>
-<script src="js/home.js?v=15"></script>
-<script src="js/excerpts.js?v=15"></script>
+<script src="js/app.js?v=16"></script>
+<script src="js/library.js?v=16"></script>
+<script src="js/stats.js?v=16"></script>
+<script src="js/calendar.js?v=16"></script>
+<script src="js/ledger.js?v=16"></script>
+<script src="js/home.js?v=16"></script>
+<script src="js/excerpts.js?v=16"></script>
 <script>
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
