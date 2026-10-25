@@ -16,7 +16,7 @@ function renderHome(){
   const year=new Date().getFullYear();
   const doneYear=books.filter(b=>b.status==='완독'&&b.dateend&&b.dateend.startsWith(String(year))).length;
   const streak=calcStreaks().currentStreak;
-  const libName=localStorage.getItem('myLib_libName')||'나의 서재';
+  const libName=getLibName();
   const photo=safeUrl(p.photo);
   const avatar=photo?`<img src="${escHtml(photo)}" alt="">`:escHtml((p.name||libName).trim().charAt(0)||'책');
   const tags=profileTags(p).map(t=>`<span class="chip">${escHtml(t)}</span>`).join('');

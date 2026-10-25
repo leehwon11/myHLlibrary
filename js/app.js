@@ -34,10 +34,13 @@ const GENRE_COLOR_MAP=Object.fromEntries(DEFAULT_GENRES.map(g=>[g.name,g.color])
 const SUPABASE_URL='https://gnwdcjdmtrwnbjbpswuh.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdud2RjamRtdHJ3bmJqYnBzd3VoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk4NDE3OTMsImV4cCI6MjEwNTQxNzc5M30.ruGk6emBXdz4PCif06ZGX8zx0vC6rrBdfSpHK_Rdz40';
 const SUPABASE_TABLE='library_data';
-const SUPABASE_ROW_ID='main';
-const SUPABASE_PUBLIC_ROW='public';
-// 보여주기 링크(?view=1)로 열면 공개용 사본만 읽고, 아무것도 저장하지 않는다
-const VIEW_MODE=new URLSearchParams(location.search).get('view')==='1';
+// 회원마다 자기 UID 행에 서재를 저장하고, 보여주기용 사본은 'public:UID' 행에 둔다.
+// 'main'은 1인용 시절의 예전 서재(처음 로그인할 때 주인 계정으로 옮김).
+const LEGACY_ROW_ID='main';
+function publicRowId(uid){return 'public:'+uid;}
+// 보여주기 링크(?view=UID)로 열면 그 사람의 공개용 사본만 읽고, 아무것도 저장하지 않는다
+const VIEW_PARAM=new URLSearchParams(location.search).get('view')||'';
+const VIEW_MODE=!!VIEW_PARAM;
 let _viewLib=null;
 const RIDI_PROXY_URL=SUPABASE_URL+'/functions/v1/ridifetch';
 let sb=null;
@@ -52,52 +55,109 @@ function getSupabase(){
   return sb;
 }
 
-// ══════════════ 로그인 (주인 전용) ══════════════
-let _loginResolve=null,_userEmail='',_userId='';
+// ══════════════ 로그인 / 회원가입 ══════════════
+let _loginResolve=null,_userEmail='',_userId='',_pendingEmail='';
+const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function backupKey(){return 'library_backup:'+_userId;}
+function setUser(user){_userEmail=user?.email||'';_userId=user?.id||'';}
 async function ensureLogin(){
   const client=getSupabase();if(!client)return;
   const{data}=await client.auth.getSession();
-  if(data&&data.session){_userEmail=data.session.user?.email||'';_userId=data.session.user?.id||'';return;}
+  if(data&&data.session){setUser(data.session.user);return;}
   document.getElementById('loginOv').classList.add('open');
-  setTimeout(()=>document.getElementById('loginEmail')?.focus(),50);
+  setAuthStep('login');
   return new Promise(res=>{_loginResolve=res;});
+}
+function setAuthStep(step){
+  ['login','signup','verify'].forEach(s=>{const f=document.getElementById('auth-'+s);if(f)f.hidden=s!==step;});
+  document.querySelectorAll('#authTabs .pill').forEach(b=>b.classList.toggle('on',b.dataset.tab===step));
+  document.getElementById('authTabs').hidden=step==='verify';
+  document.querySelectorAll('.login-error').forEach(e=>e.textContent='');
+  if(step==='verify'){document.getElementById('verifyEmail').textContent=_pendingEmail;document.getElementById('verifyCode').value='';}
+  const first={login:'loginEmail',signup:'signupEmail',verify:'verifyCode'}[step];
+  setTimeout(()=>document.getElementById(first)?.focus(),50);
+}
+function finishLogin(user){
+  setUser(user);
+  document.getElementById('loginOv').classList.remove('open');
+  document.querySelectorAll('#loginOv input[type=password]').forEach(i=>i.value='');
+  if(_loginResolve){_loginResolve();_loginResolve=null;}
+}
+async function withBusy(btnId,label,fn){
+  const btn=document.getElementById(btnId);const orig=btn.textContent;
+  btn.disabled=true;btn.textContent=label;
+  try{return await fn();}finally{btn.disabled=false;btn.textContent=orig;}
 }
 async function submitLogin(ev){
   ev.preventDefault();
   const client=getSupabase();if(!client)return;
   const email=document.getElementById('loginEmail').value.trim();
   const password=document.getElementById('loginPassword').value;
-  const btn=document.getElementById('loginBtn');const err=document.getElementById('loginError');
-  err.textContent='';btn.disabled=true;btn.textContent='로그인 중...';
-  const{data,error}=await client.auth.signInWithPassword({email,password});
-  btn.disabled=false;btn.textContent='로그인';
-  if(error){err.textContent=loginErrorText(error);return;}
-  _userEmail=data.user?.email||email;_userId=data.user?.id||'';
-  document.getElementById('loginPassword').value='';
-  document.getElementById('loginOv').classList.remove('open');
-  if(_loginResolve){_loginResolve();_loginResolve=null;}
+  const err=document.getElementById('loginError');err.textContent='';
+  const{data,error}=await withBusy('loginBtn','로그인 중...',()=>client.auth.signInWithPassword({email,password}));
+  if(error){
+    if(isNotConfirmed(error)){_pendingEmail=email;await client.auth.resend({type:'signup',email}).catch(()=>{});setAuthStep('verify');document.getElementById('verifyError').textContent='아직 이메일 인증 전이에요. 메일로 보낸 6자리 코드를 입력해주세요.';return;}
+    err.textContent=authErrorText(error);return;
+  }
+  finishLogin(data.user);
 }
-function loginErrorText(error){
+async function submitSignup(ev){
+  ev.preventDefault();
+  const client=getSupabase();if(!client)return;
+  const email=document.getElementById('signupEmail').value.trim();
+  const pw=document.getElementById('signupPassword').value,pw2=document.getElementById('signupPassword2').value;
+  const err=document.getElementById('signupError');err.textContent='';
+  if(pw.length<8){err.textContent='비밀번호는 8자 이상으로 정해주세요.';return;}
+  if(pw!==pw2){err.textContent='비밀번호 확인이 일치하지 않아요.';return;}
+  const{data,error}=await withBusy('signupBtn','가입하는 중...',()=>client.auth.signUp({email,password:pw}));
+  if(error){err.textContent=authErrorText(error);return;}
+  // 이미 가입된 이메일이면 Supabase는 오류 대신 identities가 빈 사용자를 돌려준다
+  if(data.user&&Array.isArray(data.user.identities)&&!data.user.identities.length){err.textContent='이미 가입된 이메일이에요. 로그인 탭에서 로그인해주세요.';return;}
+  if(data.session){finishLogin(data.user);return;}
+  _pendingEmail=email;setAuthStep('verify');
+}
+async function submitVerify(ev){
+  ev.preventDefault();
+  const client=getSupabase();if(!client)return;
+  const token=document.getElementById('verifyCode').value.replace(/\D/g,'');
+  const err=document.getElementById('verifyError');err.textContent='';
+  if(token.length!==6){err.textContent='메일로 받은 6자리 숫자를 입력해주세요.';return;}
+  const res=await withBusy('verifyBtn','확인하는 중...',async()=>{
+    let r=await client.auth.verifyOtp({email:_pendingEmail,token,type:'email'});
+    if(r.error)r=await client.auth.verifyOtp({email:_pendingEmail,token,type:'signup'});
+    return r;
+  });
+  if(res.error){err.textContent=/expired|invalid/i.test(res.error.message||'')?'코드가 맞지 않거나 만료됐어요. 다시 받아서 입력해주세요.':authErrorText(res.error);return;}
+  showToast('이메일 인증이 끝났어요. 환영해요! 📚');
+  finishLogin(res.data.user);
+}
+async function resendCode(){
+  const client=getSupabase();if(!client||!_pendingEmail)return;
+  const err=document.getElementById('verifyError');
+  const{error}=await client.auth.resend({type:'signup',email:_pendingEmail});
+  err.textContent=error?authErrorText(error):'코드를 다시 보냈어요. 메일함(스팸함 포함)을 확인해주세요.';
+}
+function isNotConfirmed(error){return error.code==='email_not_confirmed'||/not confirmed/i.test(error.message||'');}
+function authErrorText(error){
   const code=error.code||'',msg=(error.message||'').toLowerCase();
-  if(code==='email_not_confirmed'||msg.includes('not confirmed'))return '이메일 인증이 안 된 계정이에요. Supabase → Authentication → Users에서 이 계정을 눌러 Confirm 해주세요.';
+  if(isNotConfirmed(error))return '이메일 인증이 안 된 계정이에요.';
   if(code==='invalid_credentials'||msg.includes('invalid login'))return '이메일 또는 비밀번호가 맞지 않아요.';
+  if(code==='user_already_exists'||msg.includes('already registered'))return '이미 가입된 이메일이에요. 로그인 탭에서 로그인해주세요.';
+  if(code==='signup_disabled'||msg.includes('signups not allowed'))return '지금은 회원가입을 받지 않고 있어요.';
+  if(code==='weak_password'||msg.includes('password should'))return '비밀번호가 너무 약해요. 더 길고 복잡하게 정해주세요.';
+  if(code==='email_address_invalid'||msg.includes('invalid format'))return '이메일 주소 형식이 맞지 않아요.';
+  if(code==='over_email_send_rate_limit'||msg.includes('email rate'))return '메일을 너무 자주 보냈어요. 잠시 후 다시 시도해주세요.';
   if(code==='over_request_rate_limit'||error.status===429)return '시도가 너무 많아요. 잠시 후 다시 해주세요.';
   if(msg.includes('fetch')||msg.includes('network'))return '서버에 연결하지 못했어요. 인터넷 연결을 확인해주세요.';
-  return '로그인하지 못했어요: '+(error.message||'알 수 없는 오류');
+  return '처리하지 못했어요: '+(error.message||'알 수 없는 오류');
 }
 async function logout(){
   const ok=await showConfirm('로그아웃','이 기기에서 로그아웃할까요? 이 기기에 저장된 백업도 함께 지워져요.','로그아웃');
   if(!ok)return;
   try{await getSupabase()?.auth.signOut({scope:'local'});}catch(e){console.warn('signOut',e);}
-  try{Object.keys(localStorage).filter(k=>k.startsWith('sb-')&&k.endsWith('-auth-token')).forEach(k=>localStorage.removeItem(k));}catch(e){}
-  try{localStorage.removeItem('library_backup');}catch(e){}
+  try{Object.keys(localStorage).filter(k=>(k.startsWith('sb-')&&k.endsWith('-auth-token'))||k.startsWith('library_backup')).forEach(k=>localStorage.removeItem(k));}catch(e){}
   location.reload();
 }
-
-// ══════════════ 레거시 IndexedDB (1회성 마이그레이션 읽기 전용) ══════════════
-const DB_NAME='myLibDB',DB_VERSION=1,STORE='kvStore';let _db=null;
-function openDB(){return new Promise((res,rej)=>{if(_db){res(_db);return;}const req=indexedDB.open(DB_NAME,DB_VERSION);req.onupgradeneeded=e=>e.target.result.createObjectStore(STORE);req.onsuccess=e=>{_db=e.target.result;res(_db);};req.onerror=e=>rej(e.target.error);});}
-function idbGet(key){return openDB().then(db=>new Promise((res,rej)=>{const tx=db.transaction(STORE,'readonly');const r=tx.objectStore(STORE).get(key);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);})).catch(()=>null);}
 
 function normalizeBook(b){
   if(!b) return b;
@@ -117,10 +177,10 @@ function normalizeBook(b){
 async function saveData(){
   if(VIEW_MODE)return;
   const payload={books,appSettings};
-  try{localStorage.setItem('library_backup',JSON.stringify(payload));}catch(e){}
-  const client=getSupabase();if(!client)return;
+  const client=getSupabase();if(!client||!_userId)return;
+  try{localStorage.setItem(backupKey(),JSON.stringify(payload));}catch(e){}
   try{
-    const{error}=await client.from(SUPABASE_TABLE).upsert({id:SUPABASE_ROW_ID,value:payload,updated_at:new Date().toISOString()});
+    const{error}=await client.from(SUPABASE_TABLE).upsert({id:_userId,value:payload,updated_at:new Date().toISOString()});
     if(error)throw error;
     if(appSettings.shareEnabled)await publishPublic(client);
   }catch(e){console.error('saveData(Supabase) 오류:',e);showToast('저장 중 오류가 발생했어요. Supabase 연결/테이블 설정을 확인해주세요.');}
@@ -132,20 +192,20 @@ function buildPublicSnapshot(){
   return{
     books:books.map(b=>{const c={...b};PUBLIC_HIDDEN_FIELDS.forEach(k=>delete c[k]);return c;}),
     appSettings:{profile:appSettings.profile||{},yearlyGoal:appSettings.yearlyGoal||0,readDays:appSettings.readDays||[]},
-    libName:localStorage.getItem('myLib_libName')||'나의 서재',
-    libEmoji:localStorage.getItem('myLib_libEmoji')||'📚'
+    libName:getLibName(),
+    libEmoji:getLibEmoji()
   };
 }
 async function publishPublic(client){
-  const{error}=await client.from(SUPABASE_TABLE).upsert({id:SUPABASE_PUBLIC_ROW,value:buildPublicSnapshot(),updated_at:new Date().toISOString()});
+  const{error}=await client.from(SUPABASE_TABLE).upsert({id:publicRowId(_userId),value:buildPublicSnapshot(),updated_at:new Date().toISOString()});
   if(error)throw error;
 }
 async function unpublishPublic(){
-  const client=getSupabase();if(!client)return;
-  const{error}=await client.from(SUPABASE_TABLE).upsert({id:SUPABASE_PUBLIC_ROW,value:null,updated_at:new Date().toISOString()});
+  const client=getSupabase();if(!client||!_userId)return;
+  const{error}=await client.from(SUPABASE_TABLE).upsert({id:publicRowId(_userId),value:null,updated_at:new Date().toISOString()});
   if(error){console.error('unpublish 오류:',error);showToast('공개 사본을 지우지 못했어요.');}
 }
-function shareLink(){return location.origin+location.pathname+'?view=1';}
+function shareLink(){return location.origin+location.pathname+'?view='+_userId;}
 function renderShareSettings(){
   const on=!!appSettings.shareEnabled;
   const t=document.getElementById('shareToggle');if(t)t.checked=on;
@@ -164,24 +224,13 @@ function copyShareLink(){
   navigator.clipboard.writeText(shareLink()).then(()=>showToast('링크를 복사했어요!')).catch(()=>{if(inp){inp.focus();inp.select();}showToast('링크를 길게 눌러 복사해주세요.');});
 }
 
-async function tryMigrateFromIndexedDB(){
-  try{
-    const legacyBooks=await idbGet('myLib_books');
-    if(legacyBooks&&legacyBooks.length){
-      books=legacyBooks;
-      showToast('기존 로컬(IndexedDB) 데이터를 Supabase로 옮겼어요 ✅');
-      return true;
-    }
-  }catch(e){console.warn('마이그레이션 확인 실패:',e);}
-  return false;
-}
-
 async function loadFromDB(){
   const client=getSupabase();
   if(!client){books=[];return;}
   if(VIEW_MODE){
+    if(!UUID_RE.test(VIEW_PARAM)){books=[];showToast('링크가 올바르지 않아요. 서재 주인에게 링크를 다시 받아주세요.');return;}
     try{
-      const{data,error}=await client.from(SUPABASE_TABLE).select('value').eq('id',SUPABASE_PUBLIC_ROW).maybeSingle();
+      const{data,error}=await client.from(SUPABASE_TABLE).select('value').eq('id',publicRowId(VIEW_PARAM)).maybeSingle();
       if(error)throw error;
       const v=data&&data.value;
       if(!v){books=[];showToast('공개된 서재가 없어요.');return;}
@@ -192,21 +241,27 @@ async function loadFromDB(){
     return;
   }
   try{
-    const{data,error}=await client.from(SUPABASE_TABLE).select('value').eq('id',SUPABASE_ROW_ID).maybeSingle();
+    const{data,error}=await client.from(SUPABASE_TABLE).select('value').eq('id',_userId).maybeSingle();
     if(error)throw error;
     if(data&&data.value){
       books=(data.value.books||[]).map(normalizeBook);
       if(data.value.appSettings) appSettings={...appSettings,...data.value.appSettings};
     }else{
-      // 행이 안 보이면(첫 사용, 또는 권한 없음) 빈 서재로 덮어쓰지 않는다
-      const migrated=await tryMigrateFromIndexedDB();
-      if(migrated)await saveData();
-      else{books=[];if(_userId)showConfirm('서재 데이터가 보이지 않아요','로그인은 됐지만 이 계정으로는 서재 데이터를 읽을 권한이 없어요. 접근 권한 SQL에 넣은 UID가 이 계정의 UID와 같은지 확인해주세요.\n\n이 계정 UID: '+_userId,'확인');}
+      // 내 행이 없으면: 예전 1인용 서재(main)가 이 계정에 보이면 옮겨오고, 아니면 새 회원
+      const legacy=await client.from(SUPABASE_TABLE).select('value').eq('id',LEGACY_ROW_ID).maybeSingle();
+      const lv=!legacy.error&&legacy.data&&legacy.data.value;
+      if(lv&&Array.isArray(lv.books)){
+        books=lv.books.map(normalizeBook);
+        appSettings={...appSettings,...(lv.appSettings||{})};
+        if(!appSettings.libName){try{const n=localStorage.getItem('myLib_libName'),e=localStorage.getItem('myLib_libEmoji');if(n)appSettings.libName=n;if(e)appSettings.libEmoji=e;}catch(e){}}
+        await saveData();
+        showToast('기존 서재를 내 계정으로 옮겼어요 ✅');
+      }else{books=[];}
     }
   }catch(e){
     console.error('loadFromDB(Supabase) 오류:',e);
     try{
-      const backup=localStorage.getItem('library_backup');
+      const backup=localStorage.getItem(backupKey());
       if(backup){
         const d=JSON.parse(backup);
         books=(d.books||[]).map(normalizeBook);
@@ -447,7 +502,7 @@ function _drawCardText(ctx,b,th,W,H,P,cY,cH){
 
 
 // ══════════════ JSON ══════════════
-function exportJSON(){const data={exportVersion:6,exportedAt:new Date().toISOString(),libName:localStorage.getItem('myLib_libName')||'나의 서재',libEmoji:localStorage.getItem('myLib_libEmoji')||'📚',books};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`mylibrary-v6-${localDate()}.json`;a.click();URL.revokeObjectURL(a.href);showToast('내보내기 완료! ✅');}
+function exportJSON(){const data={exportVersion:6,exportedAt:new Date().toISOString(),libName:getLibName(),libEmoji:getLibEmoji(),books};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`mylibrary-v6-${localDate()}.json`;a.click();URL.revokeObjectURL(a.href);showToast('내보내기 완료! ✅');}
 function openJsonMenu(){document.getElementById('jsonOv').classList.add('open');}
 function closeJsonMenu(){document.getElementById('jsonOv').classList.remove('open');}
 let _pendingImportData=null;
@@ -472,8 +527,8 @@ async function confirmImportChoice(mode){
   document.getElementById('importChoiceOv').classList.remove('open');
   if(mode==='overwrite'){
     books=data.books;
-    if(data.libName)localStorage.setItem('myLib_libName',data.libName);
-    if(data.libEmoji)localStorage.setItem('myLib_libEmoji',data.libEmoji);
+    if(data.libName)appSettings.libName=data.libName;
+    if(data.libEmoji)appSettings.libEmoji=data.libEmoji;
     await saveData();updateLogo();render();closeJsonMenu();showToast('덮어쓰기 완료! ✅ '+books.length+'권');
   }else{
     const existingIds=new Set(books.map(b=>b.id));
@@ -596,7 +651,7 @@ function initBgTheme(){
 }
 function applyBgTheme(id){document.body.className=document.body.className.replace(/theme-\S+/g,'').trim();if(id!=='default')document.body.classList.add('theme-'+id);}
 function applyFont(id){const all=[...BUILTIN_FONTS,...userFonts];const f=all.find(x=>x.id===id)||BUILTIN_FONTS[0];document.body.style.setProperty('--font-body',f.css);}
-function openSettings(){renderThemeGrid();renderFontList();renderShareSettings();const ae=document.getElementById('accountEmail');if(ae)ae.textContent=_userEmail?`${_userEmail} (UID ${_userId})`:'로그인 정보 없음';document.getElementById('settingsOv').classList.add('open');}
+function openSettings(){renderThemeGrid();renderFontList();renderShareSettings();const ae=document.getElementById('accountEmail');if(ae)ae.textContent=_userEmail||'로그인 정보 없음';document.getElementById('settingsOv').classList.add('open');}
 function closeSettings(){document.getElementById('settingsOv').classList.remove('open');}
 function renderThemeGrid(){const el=document.getElementById('themeGrid');el.innerHTML=BG_THEMES.map(t=>`<div class="theme-swatch${t.id===currentBgTheme?' active':''}" onclick="selectBgTheme('${t.id}')"><div class="theme-circle" style="background:linear-gradient(135deg,${t.colors[0]},${t.colors[1]})"></div><span class="theme-name">${t.name}</span></div>`).join('');}
 function selectBgTheme(id){currentBgTheme=id;localStorage.setItem('myLib_bgTheme',id);applyBgTheme(id);renderThemeGrid();}
@@ -648,11 +703,13 @@ function deleteUserFont(id){userFonts=userFonts.filter(f=>f.id!==id);if(currentF
 
 // ══════════════ 서재 이름 ══════════════
 const LIB_EMOJIS=['📚','🔖','📖','✨','💫','🌸','🌷','🌺','💐','🍀','🌿','☘️','🦋','🌙','⭐','💖','💜','💙','🩷','🍵','☕','🕯️','🎀'];
-let selectedLibEmoji=localStorage.getItem('myLib_libEmoji')||'📚';
+function getLibName(){return _viewLib?_viewLib.name:(appSettings.libName||'나의 서재');}
+function getLibEmoji(){return _viewLib?_viewLib.emoji:(appSettings.libEmoji||'📚');}
+let selectedLibEmoji='📚';
 function openLibName(){
   if(VIEW_MODE)return;
-  selectedLibEmoji=localStorage.getItem('myLib_libEmoji')||'📚';
-  document.getElementById('libNameInput').value=localStorage.getItem('myLib_libName')||'나의 서재';
+  selectedLibEmoji=getLibEmoji();
+  document.getElementById('libNameInput').value=getLibName();
   const grid=document.getElementById('emojiGrid');
   grid.innerHTML=LIB_EMOJIS.map(e=>`<button class="emoji-btn${e===selectedLibEmoji?' sel':''}" onclick="selectLibEmoji('${e}')">${e}</button>`).join('');
   updateLibPreview();document.getElementById('libNameOv').classList.add('open');
@@ -660,8 +717,8 @@ function openLibName(){
 function closeLibName(){document.getElementById('libNameOv').classList.remove('open');}
 function selectLibEmoji(e){selectedLibEmoji=e;document.querySelectorAll('.emoji-btn').forEach(btn=>btn.classList.toggle('sel',btn.textContent===e));updateLibPreview();}
 function updateLibPreview(){document.getElementById('libNamePreviewEmoji').textContent=selectedLibEmoji;document.getElementById('libNamePreviewText').textContent=document.getElementById('libNameInput').value||'나의 서재';}
-function saveLibName(){const name=document.getElementById('libNameInput').value.trim()||'나의 서재';localStorage.setItem('myLib_libName',name);localStorage.setItem('myLib_libEmoji',selectedLibEmoji);updateLogo();closeLibName();showToast('서재 이름이 바뀌었어요!');}
-function updateLogo(){const emoji=_viewLib?_viewLib.emoji:(localStorage.getItem('myLib_libEmoji')||'📚'),name=_viewLib?_viewLib.name:(localStorage.getItem('myLib_libName')||'나의 서재');const eEl=document.getElementById('logoEmoji'),nEl=document.getElementById('logoName');if(eEl)eEl.textContent=emoji;if(nEl){const parts=name.split(' ');if(parts.length>1){nEl.innerHTML=escHtml(parts.slice(0,-1).join(' '))+' <em>'+escHtml(parts[parts.length-1])+'</em>';}else nEl.innerHTML='<em>'+escHtml(name)+'</em>';}}
+function saveLibName(){const name=document.getElementById('libNameInput').value.trim()||'나의 서재';appSettings.libName=name;appSettings.libEmoji=selectedLibEmoji;saveData();updateLogo();closeLibName();showToast('서재 이름이 바뀌었어요!');}
+function updateLogo(){const emoji=getLibEmoji(),name=getLibName();const eEl=document.getElementById('logoEmoji'),nEl=document.getElementById('logoName');if(eEl)eEl.textContent=emoji;if(nEl){const parts=name.split(' ');if(parts.length>1){nEl.innerHTML=escHtml(parts.slice(0,-1).join(' '))+' <em>'+escHtml(parts[parts.length-1])+'</em>';}else nEl.innerHTML='<em>'+escHtml(name)+'</em>';}}
 
 // ══════════════ 공통 ══════════════
 function ovClick(e,ovId,closeFn){if(e.target.id===ovId)closeFn();}
