@@ -419,7 +419,52 @@ function switchPage(id){
   renderPage(id);
   window.scrollTo(0,0);
   updateLogo();
+  pushRoute(id);
 }
+
+// ══════════════ 뒤로가기 (브라우저 히스토리) ══════════════
+// 페이지를 옮길 때마다 히스토리에 남겨서 뒤로가기로 이전 페이지로 돌아가게 한다.
+// 창(모달)이 열려 있을 때 뒤로가기를 누르면 페이지는 그대로 두고 창만 닫는다.
+const ROUTE_PAGES=['home','library','excerpts','stats','ledger','calendar'];
+let _routing=false,_navDepth=0,_routeState=null;
+function routeHash(page,book){return page==='detail'?'#book/'+encodeURIComponent(book):'#'+page;}
+function routeUrl(st){return location.pathname+location.search+routeHash(st.page,st.book);}
+function pushRoute(id){
+  if(_routing)return;
+  const st={page:id,book:id==='detail'?_detailId:null,prev:_prevPage};
+  if(_routeState&&_routeState.page===st.page&&_routeState.book===st.book)return;
+  _routeState=st;_navDepth++;
+  history.pushState(st,'',routeUrl(st));
+}
+function goRoute(st){
+  _routing=true;
+  try{
+    if(st.page==='detail'&&st.book&&books.some(b=>b.id===st.book)){_prevPage=st.prev||'library';_detailId=st.book;renderDetail(st.book);switchPage('detail');}
+    else switchPage(ROUTE_PAGES.includes(st.page)?st.page:'home');
+  }finally{_routing=false;}
+  _routeState={page:_currentPage,book:_currentPage==='detail'?_detailId:null,prev:_prevPage};
+}
+function initRoute(){
+  const h=decodeURIComponent(location.hash.slice(1));
+  const m=h.match(/^book\/(.+)$/);
+  goRoute(m?{page:'detail',book:m[1],prev:'library'}:{page:h||'home'});
+  history.replaceState(_routeState,'',routeUrl(_routeState));
+}
+window.addEventListener('popstate',e=>{
+  _navDepth=Math.max(0,_navDepth-1);
+  const open=[...document.querySelectorAll('.ov.open')].filter(o=>o.id!=='loginOv');
+  if(open.length){
+    open.forEach(o=>o.classList.remove('open'));
+    if(_routeState){_navDepth++;history.pushState(_routeState,'',routeUrl(_routeState));}
+    return;
+  }
+  if(e.state&&e.state.page){goRoute(e.state);return;}
+  // 주소창에서 #부분만 직접 바꾼 경우
+  const h=decodeURIComponent(location.hash.slice(1)),m=h.match(/^book\/(.+)$/);
+  if(h.startsWith('ridi='))return;
+  goRoute(m?{page:'detail',book:m[1],prev:_currentPage==='detail'?_prevPage:_currentPage}:{page:h||'home'});
+  history.replaceState(_routeState,'',routeUrl(_routeState));
+});
 function renderPage(id){
   if(id==='home')renderHome();
   else if(id==='library')render();

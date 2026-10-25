@@ -240,7 +240,7 @@ function openDetail(id){
   _detailId=id;
   if(renderDetail(id))switchPage('detail');
 }
-function closeDetail(){switchPage(_prevPage&&_prevPage!=='detail'?_prevPage:'library');}
+function closeDetail(){if(_navDepth>0)history.back();else switchPage(_prevPage&&_prevPage!=='detail'?_prevPage:'library');}
 
 // ══════════════ 재독 기록 ══════════════
 function addReread(){const nth=rereadData.length+1;rereadData.push({id:uid(),nth,date:localDate(),note:''});renderRereadList();}
