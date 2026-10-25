@@ -526,87 +526,75 @@ function openRandomBook(){const wishBooks=books.filter(b=>b.status==='읽고싶�
 function decodeHtmlEntities(str){
   return str.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&#x27;/g,"'").replace(/&nbsp;/g,' ');
 }
+// 리디 책 페이지 HTML에서 책 정보를 뽑는다. __NEXT_DATA__의 gridPageMeta를 먼저 쓰고, 없으면 메타 태그.
+function parseRidiHtml(html){
+  const info={title:'',author:'',image:'',desc:'',keywords:[],adult:false,gate:false};
+  const nd=html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+  if(nd){
+    try{
+      const pp=JSON.parse(nd[1]).props.pageProps;
+      info.gate=pp.kind==='adultGate'||!!pp.adultBridge;
+      if(pp.adultBridge&&pp.adultBridge.title)info.title=pp.adultBridge.title;
+      const grid=pp.sectionProps?.gridQuery?.riGrid?.grid;
+      const g=grid?.meta?.gridPageMeta;
+      if(g){info.title=g.metaTitle||info.title;info.author=g.author||'';info.image=g.image||'';info.desc=g.description||'';info.keywords=Array.isArray(g.keywords)?g.keywords:[];}
+      info.adult=!!grid?.meta?.context?.isAdultOnly;
+    }catch(e){console.warn('__NEXT_DATA__ 파싱 실패',e);}
+  }
+  const meta=p=>{
+    const esc=p.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    const res=[new RegExp(`<meta[^>]+(?:property|name)=["']${esc}["'][^>]+content="([^"]*)"`,'i'),new RegExp(`<meta[^>]+content="([^"]*)"[^>]+(?:property|name)=["']${esc}["']`,'i')];
+    for(const re of res){const m=html.match(re);if(m&&m[1])return decodeHtmlEntities(m[1]);}
+    return'';
+  };
+  if(!info.gate){
+    if(!info.title)info.title=meta('og:title');
+    if(!info.image)info.image=meta('og:image');
+    if(!info.desc)info.desc=meta('og:description')||meta('description');
+    if(!info.keywords.length)info.keywords=meta('keywords').split(',');
+  }
+  return info;
+}
+
+// 뽑은 책 정보로 책 추가/수정 폼을 채운다 (URL 불러오기와 북마크 버튼이 함께 사용)
+function applyRidiInfo(info,url){
+  const kws=(info.keywords||[]).map(k=>String(k).trim()).filter(Boolean);
+  const title=String(info.title||'').replace(/\s*-\s*리디\s*$/,'').replace(/\s*-\s*(최신권.*|완결.*|독점.*|\d+권.*|무료.*|리디에만.*)/gi,'').trim();
+  const desc=String(info.desc||'').replace(/^[\s\S]{0,80}?작품소개\s*:\s*/,'').replace(/\s*\.\.\.\s*$/,'').trim();
+  const cover=/^https:\/\/img\.ridicdn\.net\/cover\//.test(info.image||'')?info.image:'';
+  const pick=list=>kws.filter(k=>list.includes(k));
+  const genres=pick(RIDI_GENRES),sojai=pick(RIDI_SOJAI),rel=pick(RIDI_REL),mlT=pick(RIDI_ML_TYPES),flT=pick(RIDI_FL_TYPES);
+  const age=info.gate||info.adult||kws.includes('19+')?'19세':kws.includes('15+')?'15세':'';
+  const bookType=kws.includes('웹소설')?'웹소설':kws.includes('단행본')?'단행본':'';
+  const set=(id,v,force)=>{const el=document.getElementById(id);if(el&&v&&(force||!el.value))el.value=v;};
+  set('f-title',title);set('f-author',info.author);
+  if(desc){const s=document.getElementById('f-summary');if(s&&!s.value){s.value=desc;autosizeEl(s);}}
+  set('f-platform','리디');set('f-platformurl',url,true);set('f-agerating',age,true);set('f-booktype',bookType,true);
+  if(cover&&!currentCover){currentCover=cover;document.getElementById('coverBox').innerHTML=`<img src="${escHtml(cover)}" alt="">`;}
+  genres.forEach(g=>{if(!currentGenreTags.includes(g))currentGenreTags.push(g);});renderGenreTags();
+  sojai.forEach(t=>{const tag='#'+t;if(!currentCtagsSojai.includes(tag))currentCtagsSojai.push(tag);});renderTagsSojai();
+  rel.forEach(t=>{const tag='#'+t;if(!currentCtagsRel.includes(tag))currentCtagsRel.push(tag);});renderTagsRel();
+  if(mlT.length){if(!mlData.length)mlData.push({id:uid(),name:'',age:'',typeTags:[],intro:'',sub:false,open:true});mlT.forEach(t=>{const tag='#'+t;if(!mlData[0].typeTags.includes(tag))mlData[0].typeTags.push(tag);});renderMlAcc();}
+  if(flT.length){flT.forEach(t=>{const tag='#'+t;if(!currentFlTypeTags.includes(tag))currentFlTypeTags.push(tag);});renderFlTypeTags();}
+  if(info.gate){showToast('19세 작품은 리디가 로그인 없이는 정보를 보여주지 않아서 제목만 가져왔어요. 리디 책 페이지에서 "서재로 보내기" 버튼을 쓰면 전부 불러올 수 있어요 (⚙ 설정 참고).');return;}
+  const filled=[title&&'제목',info.author&&'작가',cover&&'표지',genres.length&&'장르',age&&'이용가',bookType&&'책 종류',desc&&'줄거리'].filter(Boolean);
+  const tagCnt=sojai.length+rel.length+mlT.length+flT.length;
+  if(tagCnt)filled.push(`태그 ${tagCnt}개`);
+  showToast(filled.length?`✅ ${filled.join(', ')} 자동 입력!`:'책 정보를 찾지 못했어요. 직접 입력해주세요.');
+}
+
 async function fetchRidiBook(){
   const inp=document.getElementById('ridiUrlInput');
   const btn=document.getElementById('ridiUrlBtn');
   const url=(inp?.value||'').trim();
-  if(!url||!url.includes('ridibooks.com/books/')){showToast('올바른 리디북스 URL을 입력해주세요.');return;}
+  if(!/^https?:\/\/(?:www\.)?ridibooks\.com\/books\/\d+/.test(url)){showToast('올바른 리디북스 책 URL을 입력해주세요.');return;}
   if(btn){btn.textContent='불러오는 중...';btn.disabled=true;}
-  let html='';
   try{
-    const resp=await fetch(RIDI_PROXY_URL+'?url='+encodeURIComponent(url),{
-      headers:{'Authorization':'Bearer '+SUPABASE_ANON_KEY}
-    });
+    const resp=await fetch(RIDI_PROXY_URL+'?url='+encodeURIComponent(url),{headers:{'Authorization':'Bearer '+SUPABASE_ANON_KEY}});
     if(!resp.ok) throw new Error('프록시 오류: '+resp.status);
-    html=await resp.text();
+    const html=await resp.text();
     if(!html||!html.includes('og:title')) throw new Error('페이지를 불러오지 못했어요');
-
-    // ── 메타 태그 파싱: 따옴표 혼재 대응 ──
-    const getMeta=p=>{
-      const esc=p.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-      // property/name 앞에 오는 경우
-      const patterns=[
-        new RegExp(`<meta[^>]+(?:property|name)=["']${esc}["'][^>]+content="([^"]*)"`, 'i'),
-        new RegExp(`<meta[^>]+(?:property|name)=["']${esc}["'][^>]+content='([^']*)'`, 'i'),
-        // content가 앞에 오는 경우
-        new RegExp(`<meta[^>]+content="([^"]*)"[^>]+(?:property|name)=["']${esc}["']`, 'i'),
-        new RegExp(`<meta[^>]+content='([^']*)'[^>]+(?:property|name)=["']${esc}["']`, 'i'),
-      ];
-      for(const re of patterns){const m=html.match(re);if(m&&m[1])return decodeHtmlEntities(m[1]);}
-      return'';
-    };
-
-    // ── JSON-LD에서 저자 추출 ──
-    let authorFromLd='';
-    const ldMatch=html.match(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/i);
-    if(ldMatch){try{const ld=JSON.parse(ldMatch[1]);if(ld.author){const a=ld.author;authorFromLd=Array.isArray(a)?a.map(x=>x.name||x).join(', '):(a.name||a);}if(!authorFromLd&&ld.creator)authorFromLd=Array.isArray(ld.creator)?ld.creator.map(x=>x.name||x).join(', '):(ld.creator.name||ld.creator);}catch(e){}}
-
-    // ── 정보 추출 ──
-    // 19세 작품은 로그인하지 않으면 리디가 '성인 인증' 안내 페이지만 준다(제목 외 정보 없음)
-    const isAdultGate=/"kind":"adultGate"/.test(html)||/"adultBridge":\{/.test(html);
-    const ogTitle=getMeta('og:title');
-    const rawImage=getMeta('og:image');
-    const ogImage=/^https:\/\/img\.ridicdn\.net\/cover\//.test(rawImage)?rawImage:'';
-    const ogDesc=isAdultGate?'':(getMeta('og:description')||getMeta('description'));
-    const kwRaw=isAdultGate?'':getMeta('keywords');
-    let title=ogTitle.replace(/\s*-\s*리디\s*$/,'').replace(/\s*-\s*(최신권.*|완결.*|독점.*|\d+권.*|무료.*|리디에만.*)/gi,'').trim()||ogTitle;
-    const kws=kwRaw.split(',').map(k=>k.trim()).filter(Boolean);
-    const genreMatches=kws.filter(k=>RIDI_GENRES.includes(k));
-    const sojaiMatches=kws.filter(k=>RIDI_SOJAI.includes(k));
-    const relMatches=kws.filter(k=>RIDI_REL.includes(k));
-    const mlMatches=kws.filter(k=>RIDI_ML_TYPES.includes(k));
-    const flMatches=kws.filter(k=>RIDI_FL_TYPES.includes(k));
-    const ageRating=isAdultGate||kws.includes('19+')?'19세':kws.includes('15+')?'15세':'';
-    const bookType=kws.includes('단행본')?'단행본':kws.includes('웹소설')?'웹소설':'';
-    const isAdultPlaceholder=!ogImage||ogImage.includes('cover_adult')||ogImage.includes('adult');
-
-    // ── 폼 채우기 ──
-    if(title&&!document.getElementById('f-title').value)document.getElementById('f-title').value=title;
-    if(authorFromLd&&!document.getElementById('f-author').value)document.getElementById('f-author').value=authorFromLd;
-    if(ogDesc){const s=document.getElementById('f-summary');if(s&&!s.value){s.value=ogDesc.replace(/\s*\.\.\.\s*$/,'').trim();autosizeEl(s);}}
-    if(!document.getElementById('f-platform').value)document.getElementById('f-platform').value='리디';
-    document.getElementById('f-platformurl').value=url;
-    if(ageRating)document.getElementById('f-agerating').value=ageRating;
-    if(bookType)document.getElementById('f-booktype').value=bookType;
-    if(ogImage&&!isAdultPlaceholder&&!currentCover){currentCover=ogImage;document.getElementById('coverBox').innerHTML=`<img src="${currentCover}" alt="">`;}
-    genreMatches.forEach(g=>{if(!currentGenreTags.includes(g))currentGenreTags.push(g);});renderGenreTags();
-    sojaiMatches.forEach(t=>{const tag='#'+t;if(!currentCtagsSojai.includes(tag))currentCtagsSojai.push(tag);});renderTagsSojai();
-    relMatches.forEach(t=>{const tag='#'+t;if(!currentCtagsRel.includes(tag))currentCtagsRel.push(tag);});renderTagsRel();
-    if(mlMatches.length){if(!mlData.length)mlData.push({id:uid(),name:'',age:'',typeTags:[],intro:'',sub:false,open:true});mlMatches.forEach(t=>{const tag='#'+t;if(!mlData[0].typeTags.includes(tag))mlData[0].typeTags.push(tag);});renderMlAcc();}
-    if(flMatches.length){flMatches.forEach(t=>{const tag='#'+t;if(!currentFlTypeTags.includes(tag))currentFlTypeTags.push(tag);});renderFlTypeTags();}
-
-    const filled=[];
-    if(title)filled.push('제목');
-    if(authorFromLd)filled.push('저자');
-    if(!isAdultPlaceholder&&ogImage)filled.push('표지');
-    if(genreMatches.length)filled.push('장르');
-    if(ageRating)filled.push('이용가');
-    if(bookType)filled.push('책 종류');
-    if(ogDesc)filled.push('줄거리');
-    const tagCnt=sojaiMatches.length+relMatches.length+mlMatches.length+flMatches.length;
-    if(tagCnt)filled.push(`태그 ${tagCnt}개`);
-    if(isAdultGate)showToast('19세 작품은 리디가 로그인 없이는 정보를 공개하지 않아서 제목과 이용가만 가져왔어요. 표지·장르·태그는 직접 입력해주세요.');
-    else showToast(`✅ ${filled.join(', ')} 자동 입력!${isAdultPlaceholder?' (표지는 직접 입력해주세요)':''}`);
+    applyRidiInfo(parseRidiHtml(html),url.split('?')[0]);
     if(inp)inp.value='';
   }catch(e){
     console.error('Ridi fetch 오류:',e);
@@ -614,6 +602,34 @@ async function fetchRidiBook(){
   }finally{
     if(btn){btn.textContent='불러오기';btn.disabled=false;}
   }
+}
+
+// ── 리디 → 서재로 보내기 (북마크 버튼) ──
+// 리디 책 페이지에서 실행되어, 로그인된 상태로 그 페이지를 다시 읽고 정보를 #ridi= 로 서재에 넘긴다
+function ridiBookmarkletCode(){
+  const app=location.origin+location.pathname;
+  const src=`(async()=>{const A=${JSON.stringify(app)};const id=(location.pathname.match(/\\/books\\/(\\d+)/)||[])[1];if(!/(^|\\.)ridibooks\\.com$/.test(location.hostname)||!id){alert('리디 책 상세 페이지에서 눌러주세요.');return}let p;try{const h=await(await fetch('/books/'+id,{credentials:'include'})).text();p=JSON.parse(new DOMParser().parseFromString(h,'text/html').getElementById('__NEXT_DATA__').textContent).props.pageProps}catch(e){alert('리디 페이지를 읽지 못했어요.');return}if(p.kind==='adultGate'||p.adultBridge){alert('19세 작품이에요. 리디에 로그인하고 성인 인증을 한 뒤 다시 눌러주세요.');return}let g={},ad=false;try{const r=p.sectionProps.gridQuery.riGrid.grid;g=r.meta.gridPageMeta||{};ad=!!(r.meta.context||{}).isAdultOnly}catch(e){}if(!g.metaTitle){alert('책 정보를 찾지 못했어요.');return}const d={u:'https://ridibooks.com/books/'+id,t:g.metaTitle,a:g.author||'',i:g.image||'',s:g.description||'',k:g.keywords||[],x:ad?1:0};const u=A+'#ridi='+encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(d)))));if(!window.open(u,'_blank'))location.href=u})()`;
+  return 'javascript:'+encodeURIComponent(src);
+}
+function renderRidiBookmarklet(){
+  const a=document.getElementById('ridiBookmarklet');if(a)a.href=ridiBookmarkletCode();
+  const t=document.getElementById('ridiBookmarkletCode');if(t)t.value=ridiBookmarkletCode();
+}
+function copyRidiBookmarklet(){
+  const t=document.getElementById('ridiBookmarkletCode');
+  navigator.clipboard.writeText(ridiBookmarkletCode()).then(()=>showToast('버튼 코드를 복사했어요!')).catch(()=>{if(t){t.focus();t.select();}showToast('코드를 길게 눌러 복사해주세요.');});
+}
+// 북마크 버튼이 넘긴 #ridi= 데이터를 받아 책 추가 폼을 연다
+function handleRidiHash(){
+  const m=location.hash.match(/^#ridi=(.+)$/);if(!m)return;
+  history.replaceState(null,'',location.pathname+location.search);
+  if(VIEW_MODE)return;
+  let d;
+  try{d=JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1])))));}catch(e){showToast('리디에서 보낸 정보를 읽지 못했어요.');return;}
+  const url=/^https:\/\/ridibooks\.com\/books\/\d+$/.test(d.u||'')?d.u:'';
+  if(url&&books.some(b=>(b.platformurl||'').split('?')[0]===url)){showToast('이미 서재에 있는 책이에요.');}
+  openAdd();
+  applyRidiInfo({title:d.t,author:d.a,image:d.i,desc:d.s,keywords:Array.isArray(d.k)?d.k:[],adult:!!d.x,gate:false},url);
 }
 function searchByTag(tag){const inp=document.getElementById('searchInput');if(inp)inp.value=tag;currentStatusFilter='';currentFilter='전체';showFavOnly=false;document.querySelectorAll('.sp').forEach(p=>p.classList.toggle('sp-on',p.dataset.sv===''));document.getElementById('favPill')?.classList.remove('active');switchPage('library');}
 
@@ -633,7 +649,7 @@ function initBgTheme(){
 }
 function applyBgTheme(id){document.body.className=document.body.className.replace(/theme-\S+/g,'').trim();if(id!=='default')document.body.classList.add('theme-'+id);}
 function applyFont(id){const all=[...BUILTIN_FONTS,...userFonts];const f=all.find(x=>x.id===id)||BUILTIN_FONTS[0];document.body.style.setProperty('--font-body',f.css);}
-function openSettings(){renderThemeGrid();renderFontList();renderShareSettings();const ae=document.getElementById('accountEmail');if(ae)ae.textContent=_userEmail||'로그인 정보 없음';document.getElementById('settingsOv').classList.add('open');}
+function openSettings(){renderThemeGrid();renderFontList();renderShareSettings();renderRidiBookmarklet();const ae=document.getElementById('accountEmail');if(ae)ae.textContent=_userEmail||'로그인 정보 없음';document.getElementById('settingsOv').classList.add('open');}
 function closeSettings(){document.getElementById('settingsOv').classList.remove('open');}
 function renderThemeGrid(){const el=document.getElementById('themeGrid');el.innerHTML=BG_THEMES.map(t=>`<div class="theme-swatch${t.id===currentBgTheme?' active':''}" onclick="selectBgTheme('${t.id}')"><div class="theme-circle" style="background:linear-gradient(135deg,${t.colors[0]},${t.colors[1]})"></div><span class="theme-name">${t.name}</span></div>`).join('');}
 function selectBgTheme(id){currentBgTheme=id;localStorage.setItem('myLib_bgTheme',id);applyBgTheme(id);renderThemeGrid();}
