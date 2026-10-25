@@ -562,20 +562,23 @@ async function fetchRidiBook(){
     if(ldMatch){try{const ld=JSON.parse(ldMatch[1]);if(ld.author){const a=ld.author;authorFromLd=Array.isArray(a)?a.map(x=>x.name||x).join(', '):(a.name||a);}if(!authorFromLd&&ld.creator)authorFromLd=Array.isArray(ld.creator)?ld.creator.map(x=>x.name||x).join(', '):(ld.creator.name||ld.creator);}catch(e){}}
 
     // ── 정보 추출 ──
+    // 19세 작품은 로그인하지 않으면 리디가 '성인 인증' 안내 페이지만 준다(제목 외 정보 없음)
+    const isAdultGate=/"kind":"adultGate"/.test(html)||/"adultBridge":\{/.test(html);
     const ogTitle=getMeta('og:title');
-    const ogImage=getMeta('og:image');
-    const ogDesc=getMeta('og:description')||getMeta('description');
-    const kwRaw=getMeta('keywords');
-    let title=ogTitle.replace(/\s*-\s*(최신권.*|완결.*|독점.*|\d+권.*|무료.*|리디에만.*)/gi,'').trim()||ogTitle;
+    const rawImage=getMeta('og:image');
+    const ogImage=/^https:\/\/img\.ridicdn\.net\/cover\//.test(rawImage)?rawImage:'';
+    const ogDesc=isAdultGate?'':(getMeta('og:description')||getMeta('description'));
+    const kwRaw=isAdultGate?'':getMeta('keywords');
+    let title=ogTitle.replace(/\s*-\s*리디\s*$/,'').replace(/\s*-\s*(최신권.*|완결.*|독점.*|\d+권.*|무료.*|리디에만.*)/gi,'').trim()||ogTitle;
     const kws=kwRaw.split(',').map(k=>k.trim()).filter(Boolean);
     const genreMatches=kws.filter(k=>RIDI_GENRES.includes(k));
     const sojaiMatches=kws.filter(k=>RIDI_SOJAI.includes(k));
     const relMatches=kws.filter(k=>RIDI_REL.includes(k));
     const mlMatches=kws.filter(k=>RIDI_ML_TYPES.includes(k));
     const flMatches=kws.filter(k=>RIDI_FL_TYPES.includes(k));
-    const ageRating=kws.includes('19+')?'19세':kws.includes('15+')?'15세':'';
+    const ageRating=isAdultGate||kws.includes('19+')?'19세':kws.includes('15+')?'15세':'';
     const bookType=kws.includes('단행본')?'단행본':kws.includes('웹소설')?'웹소설':'';
-    const isAdultPlaceholder=ogImage.includes('cover_adult')||ogImage.includes('adult');
+    const isAdultPlaceholder=!ogImage||ogImage.includes('cover_adult')||ogImage.includes('adult');
 
     // ── 폼 채우기 ──
     if(title&&!document.getElementById('f-title').value)document.getElementById('f-title').value=title;
@@ -602,7 +605,8 @@ async function fetchRidiBook(){
     if(ogDesc)filled.push('줄거리');
     const tagCnt=sojaiMatches.length+relMatches.length+mlMatches.length+flMatches.length;
     if(tagCnt)filled.push(`태그 ${tagCnt}개`);
-    showToast(`✅ ${filled.join(', ')} 자동 입력!${isAdultPlaceholder?' (19+ 표지는 직접 입력해주세요)':''}`);
+    if(isAdultGate)showToast('19세 작품은 리디가 로그인 없이는 정보를 공개하지 않아서 제목과 이용가만 가져왔어요. 표지·장르·태그는 직접 입력해주세요.');
+    else showToast(`✅ ${filled.join(', ')} 자동 입력!${isAdultPlaceholder?' (표지는 직접 입력해주세요)':''}`);
     if(inp)inp.value='';
   }catch(e){
     console.error('Ridi fetch 오류:',e);
@@ -701,7 +705,7 @@ function updateLogo(){const emoji=getLibEmoji(),name=getLibName();const eEl=docu
 // ══════════════ 공통 ══════════════
 function ovClick(e,ovId,closeFn){if(e.target.id===ovId)closeFn();}
 let _toastTimer=null;
-function showToast(msg){const existing=document.querySelector('.toast');if(existing)existing.remove();if(_toastTimer)clearTimeout(_toastTimer);const el=document.createElement('div');el.className='toast';el.textContent=msg;document.body.appendChild(el);_toastTimer=setTimeout(()=>{el.remove();_toastTimer=null;},2600);}
+function showToast(msg){const existing=document.querySelector('.toast');if(existing)existing.remove();if(_toastTimer)clearTimeout(_toastTimer);const el=document.createElement('div');el.className='toast';el.textContent=msg;document.body.appendChild(el);_toastTimer=setTimeout(()=>{el.remove();_toastTimer=null;},Math.max(2600,msg.length*70));}
 
 // ══════════════ 커스텀 확인 모달 (native confirm 대체) ══════════════
 let _confirmResolve=null;
