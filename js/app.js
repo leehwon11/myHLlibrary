@@ -14,7 +14,29 @@ const DEFAULT_GENRES=[
   {id:'아카데미',name:'아카데미',color:'#6040a0',locked:true},
   {id:'헌터물',name:'헌터물',color:'#505050',locked:true}
 ];
-const MOOD_OPTIONS=[{emoji:'😭',label:'울었어요',color:'#4a7fc0',bg:'#e8f0fa'},{emoji:'🥰',label:'설렜어요',color:'#c05070',bg:'#fce8ef'},{emoji:'😤',label:'화났어요',color:'#b04040',bg:'#fdf0f0'},{emoji:'😳',label:'충격받았어요',color:'#9040b0',bg:'#f4e8fc'},{emoji:'🥺',label:'여운남아요',color:'#2e7d52',bg:'#edf7f2'},{emoji:'😂',label:'웃겼어요',color:'#b06a00',bg:'#fdf4e7'},{emoji:'😪',label:'아쉬웠어요',color:'#808080',bg:'#f0eeeb'},{emoji:'🤯',label:'스트레스받았어요',color:'#c04030',bg:'#fdf0f0'}];
+// 감정 태그는 label로 책에 저장되므로 기존 라벨은 바꾸지 않는다. group은 입력 화면에서 묶어 보여주는 용도.
+const MOOD_GROUPS=['감정','전개','분위기','아쉬움'];
+const MOOD_OPTIONS=[
+  {emoji:'😭',label:'울었어요',color:'#4a7fc0',bg:'#e8f0fa',group:'감정'},
+  {emoji:'🥰',label:'설렜어요',color:'#c05070',bg:'#fce8ef',group:'감정'},
+  {emoji:'😂',label:'웃겼어요',color:'#b06a00',bg:'#fdf4e7',group:'감정'},
+  {emoji:'🥺',label:'여운남아요',color:'#2e7d52',bg:'#edf7f2',group:'감정'},
+  {emoji:'💔',label:'마음 아팠어요',color:'#8a3a5a',bg:'#f8e8ee',group:'감정'},
+  {emoji:'😳',label:'충격받았어요',color:'#9040b0',bg:'#f4e8fc',group:'감정'},
+  {emoji:'😤',label:'화났어요',color:'#b04040',bg:'#fdf0f0',group:'감정'},
+  {emoji:'🥤',label:'사이다였어요',color:'#22675e',bg:'#e3f3f1',group:'전개'},
+  {emoji:'🍠',label:'고구마였어요',color:'#7a4a24',bg:'#f4ece4',group:'전개'},
+  {emoji:'🌙',label:'밤새 읽었어요',color:'#3a4a8a',bg:'#e9ecf8',group:'전개'},
+  {emoji:'😰',label:'조마조마했어요',color:'#5a5a2a',bg:'#f3f2e2',group:'전개'},
+  {emoji:'🔥',label:'아찔했어요',color:'#b0441e',bg:'#fdeee6',group:'전개'},
+  {emoji:'🍯',label:'달달했어요',color:'#9a6a00',bg:'#fdf6dc',group:'분위기'},
+  {emoji:'☕',label:'힐링됐어요',color:'#4a6a3a',bg:'#eef5e8',group:'분위기'},
+  {emoji:'🥀',label:'피폐했어요',color:'#5a3a4a',bg:'#f1e9ed',group:'분위기'},
+  {emoji:'😪',label:'아쉬웠어요',color:'#808080',bg:'#f0eeeb',group:'아쉬움'},
+  {emoji:'🤯',label:'스트레스받았어요',color:'#c04030',bg:'#fdf0f0',group:'아쉬움'},
+  {emoji:'🙄',label:'오글거렸어요',color:'#7a5a8a',bg:'#f3edf6',group:'아쉬움'},
+  {emoji:'😑',label:'지루했어요',color:'#6a6a6a',bg:'#efefef',group:'아쉬움'}
+];
 const STAR_LABELS=['','★ 별로였어요','★★ 보통이에요','★★★ 괜찮았어요','★★★★ 좋았어요','★★★★★ 최고였어요!'];
 
 // ══════════════ 리디북스 키워드 마스터 목록 (빠른 선택용) ══════════════
@@ -364,7 +386,7 @@ function renderQuickTagsMl(mid,typeTagsWrap){
 }
 
 // ══════════════ 감정 태그 ══════════════
-function renderMoodSelector(){const wrap=document.getElementById('moodSelector');if(!wrap)return;wrap.innerHTML='';MOOD_OPTIONS.forEach(m=>{const btn=document.createElement('button');btn.className='mood-opt'+(currentMoods.includes(m.label)?' mood-on':'');btn.textContent=m.emoji+' '+m.label;if(currentMoods.includes(m.label)){btn.style.background=m.bg;btn.style.color=m.color;btn.style.borderColor=m.color+'60';}btn.onclick=()=>toggleMood(m.label);wrap.appendChild(btn);});}
+function renderMoodSelector(){const wrap=document.getElementById('moodSelector');if(!wrap)return;wrap.innerHTML='';MOOD_GROUPS.forEach(g=>{const row=document.createElement('div');row.className='mood-group';const lbl=document.createElement('span');lbl.className='mood-group-label';lbl.textContent=g;row.appendChild(lbl);MOOD_OPTIONS.filter(m=>m.group===g).forEach(m=>{const btn=document.createElement('button');btn.type='button';btn.className='mood-opt'+(currentMoods.includes(m.label)?' mood-on':'');btn.textContent=m.emoji+' '+m.label;if(currentMoods.includes(m.label)){btn.style.background=m.bg;btn.style.color=m.color;btn.style.borderColor=m.color+'60';}btn.onclick=()=>toggleMood(m.label);row.appendChild(btn);});wrap.appendChild(row);});}
 function toggleMood(label){if(currentMoods.includes(label))currentMoods=currentMoods.filter(m=>m!==label);else currentMoods.push(label);renderMoodSelector();}
 
 // ══════════════ 남주 아코디언 ══════════════
