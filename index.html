@@ -6,7 +6,7 @@
 <title>나의 서재</title>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Serif+KR:wght@400;600&family=Noto+Sans+KR:wght@400;500;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<link rel="stylesheet" href="css/style.css?v=13">
+<link rel="stylesheet" href="css/style.css?v=14">
 </head>
 <body>
 <header class="site-header">
@@ -442,13 +442,13 @@
 </div>
 
 
-<script src="js/app.js?v=13"></script>
-<script src="js/library.js?v=13"></script>
-<script src="js/stats.js?v=13"></script>
-<script src="js/calendar.js?v=13"></script>
-<script src="js/ledger.js?v=13"></script>
-<script src="js/home.js?v=13"></script>
-<script src="js/excerpts.js?v=13"></script>
+<script src="js/app.js?v=14"></script>
+<script src="js/library.js?v=14"></script>
+<script src="js/stats.js?v=14"></script>
+<script src="js/calendar.js?v=14"></script>
+<script src="js/ledger.js?v=14"></script>
+<script src="js/home.js?v=14"></script>
+<script src="js/excerpts.js?v=14"></script>
 <script>
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
@@ -462,8 +462,8 @@ document.addEventListener('DOMContentLoaded',async()=>{
   if(VIEW_MODE){const vb=document.getElementById('viewBanner');vb.textContent=`${(appSettings.profile&&appSettings.profile.name)||(_viewLib&&_viewLib.name)||'친구'}님의 서재를 구경하는 중이에요 · 읽기 전용`;vb.hidden=false;}
   loadFilterState();
   render();
-  switchPage('home');
   handleRidiHash();
+  initRoute();
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){['editOv','profileOv','jsonOv','shareOv','settingsOv','libNameOv','confirmOv','importChoiceOv'].forEach(id=>{document.getElementById(id)?.classList.remove('open');});}});
 });
 </script>
