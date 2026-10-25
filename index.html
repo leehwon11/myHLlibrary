@@ -6,7 +6,7 @@
 <title>나의 서재</title>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Serif+KR:wght@400;600&family=Noto+Sans+KR:wght@400;500;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<link rel="stylesheet" href="css/style.css?v=10">
+<link rel="stylesheet" href="css/style.css?v=11">
 </head>
 <body>
 <header class="site-header">
@@ -279,22 +279,13 @@
       <button class="btn primary" id="loginBtn" type="submit">로그인</button>
     </form>
     <form id="auth-signup" class="auth-form" hidden onsubmit="submitSignup(event)">
-      <p class="hint">가입하면 입력한 이메일로 6자리 인증 코드를 보내드려요.</p>
+      <p class="hint">가입 코드를 받은 분만 가입할 수 있어요.</p>
+      <div class="fg"><label for="signupCode">가입 코드</label><input type="text" id="signupCode" class="code-input" inputmode="numeric" autocomplete="off" required></div>
       <div class="fg"><label for="signupEmail">이메일</label><input type="email" id="signupEmail" autocomplete="email" required></div>
       <div class="fg"><label for="signupPassword">비밀번호 (8자 이상)</label><input type="password" id="signupPassword" autocomplete="new-password" minlength="8" required></div>
       <div class="fg"><label for="signupPassword2">비밀번호 확인</label><input type="password" id="signupPassword2" autocomplete="new-password" minlength="8" required></div>
       <p class="login-error" id="signupError" role="alert"></p>
-      <button class="btn primary" id="signupBtn" type="submit">가입하고 인증 코드 받기</button>
-    </form>
-    <form id="auth-verify" class="auth-form" hidden onsubmit="submitVerify(event)">
-      <p class="hint"><b id="verifyEmail"></b>으로 보낸 6자리 숫자를 입력해주세요. 메일이 안 보이면 스팸함도 확인해주세요.</p>
-      <div class="fg"><label for="verifyCode">인증 코드</label><input type="text" id="verifyCode" class="code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="000000" required></div>
-      <p class="login-error" id="verifyError" role="alert"></p>
-      <button class="btn primary" id="verifyBtn" type="submit">인증하고 시작하기</button>
-      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
-        <button type="button" class="link-btn" onclick="resendCode()">코드 다시 받기</button>
-        <button type="button" class="link-btn" onclick="setAuthStep('signup')">이메일 다시 입력</button>
-      </div>
+      <button class="btn primary" id="signupBtn" type="submit">가입하기</button>
     </form>
   </div>
 </div>
@@ -437,13 +428,13 @@
 </div>
 
 
-<script src="js/app.js?v=10"></script>
-<script src="js/library.js?v=10"></script>
-<script src="js/stats.js?v=10"></script>
-<script src="js/calendar.js?v=10"></script>
-<script src="js/ledger.js?v=10"></script>
-<script src="js/home.js?v=10"></script>
-<script src="js/excerpts.js?v=10"></script>
+<script src="js/app.js?v=11"></script>
+<script src="js/library.js?v=11"></script>
+<script src="js/stats.js?v=11"></script>
+<script src="js/calendar.js?v=11"></script>
+<script src="js/ledger.js?v=11"></script>
+<script src="js/home.js?v=11"></script>
+<script src="js/excerpts.js?v=11"></script>
 <script>
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(()=>{});

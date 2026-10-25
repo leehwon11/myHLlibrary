@@ -35,3 +35,30 @@ create policy "owner legacy rows" on public.library_data
   for all to authenticated
   using (auth.uid() = '여기에-주인-UID'::uuid and id in ('main', 'public'))
   with check (auth.uid() = '여기에-주인-UID'::uuid and id in ('main', 'public'));
+
+-- ──────────────────────────────────────────────
+-- 가입 코드: 이 코드를 입력한 사람만 회원가입 가능
+-- '여기에-가입-코드' 를 원하는 코드로 바꿔서 실행하세요. 코드를 바꿀 때도 이 부분만 다시 실행하면 돼요.
+-- 앱이 가입 요청에 invite_code 를 담아 보내고, 계정이 만들어지기 직전에 여기서 확인해요.
+-- 맞으면 코드는 저장하지 않고 지우고, 틀리면 계정을 만들지 않아요.
+create or replace function public.check_invite_code()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if coalesce(new.raw_user_meta_data->>'invite_code', '') <> '여기에-가입-코드' then
+    raise exception 'INVALID_INVITE_CODE';
+  end if;
+  new.raw_user_meta_data := new.raw_user_meta_data - 'invite_code';
+  return new;
+end;
+$$;
+
+revoke execute on function public.check_invite_code() from public, anon, authenticated;
+
+drop trigger if exists check_invite_code on auth.users;
+create trigger check_invite_code
+  before insert on auth.users
+  for each row execute function public.check_invite_code();

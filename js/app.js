@@ -56,7 +56,7 @@ function getSupabase(){
 }
 
 // ══════════════ 로그인 / 회원가입 ══════════════
-let _loginResolve=null,_userEmail='',_userId='',_pendingEmail='';
+let _loginResolve=null,_userEmail='',_userId='';
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function backupKey(){return 'library_backup:'+_userId;}
 function setUser(user){_userEmail=user?.email||'';_userId=user?.id||'';}
@@ -69,12 +69,10 @@ async function ensureLogin(){
   return new Promise(res=>{_loginResolve=res;});
 }
 function setAuthStep(step){
-  ['login','signup','verify'].forEach(s=>{const f=document.getElementById('auth-'+s);if(f)f.hidden=s!==step;});
+  ['login','signup'].forEach(s=>{const f=document.getElementById('auth-'+s);if(f)f.hidden=s!==step;});
   document.querySelectorAll('#authTabs .pill').forEach(b=>b.classList.toggle('on',b.dataset.tab===step));
-  document.getElementById('authTabs').hidden=step==='verify';
   document.querySelectorAll('.login-error').forEach(e=>e.textContent='');
-  if(step==='verify'){document.getElementById('verifyEmail').textContent=_pendingEmail;document.getElementById('verifyCode').value='';}
-  const first={login:'loginEmail',signup:'signupEmail',verify:'verifyCode'}[step];
+  const first={login:'loginEmail',signup:'signupCode'}[step];
   setTimeout(()=>document.getElementById(first)?.focus(),50);
 }
 function finishLogin(user){
@@ -95,52 +93,32 @@ async function submitLogin(ev){
   const password=document.getElementById('loginPassword').value;
   const err=document.getElementById('loginError');err.textContent='';
   const{data,error}=await withBusy('loginBtn','로그인 중...',()=>client.auth.signInWithPassword({email,password}));
-  if(error){
-    if(isNotConfirmed(error)){_pendingEmail=email;await client.auth.resend({type:'signup',email}).catch(()=>{});setAuthStep('verify');document.getElementById('verifyError').textContent='아직 이메일 인증 전이에요. 메일로 보낸 6자리 코드를 입력해주세요.';return;}
-    err.textContent=authErrorText(error);return;
-  }
+  if(error){err.textContent=authErrorText(error);return;}
   finishLogin(data.user);
 }
 async function submitSignup(ev){
   ev.preventDefault();
   const client=getSupabase();if(!client)return;
+  const code=document.getElementById('signupCode').value.trim();
   const email=document.getElementById('signupEmail').value.trim();
   const pw=document.getElementById('signupPassword').value,pw2=document.getElementById('signupPassword2').value;
   const err=document.getElementById('signupError');err.textContent='';
+  if(!code){err.textContent='가입 코드를 입력해주세요.';return;}
   if(pw.length<8){err.textContent='비밀번호는 8자 이상으로 정해주세요.';return;}
   if(pw!==pw2){err.textContent='비밀번호 확인이 일치하지 않아요.';return;}
-  const{data,error}=await withBusy('signupBtn','가입하는 중...',()=>client.auth.signUp({email,password:pw}));
+  // 가입 코드는 서버(auth.users 트리거)에서 확인한다. 틀리면 계정이 만들어지지 않는다.
+  const{data,error}=await withBusy('signupBtn','가입하는 중...',()=>client.auth.signUp({email,password:pw,options:{data:{invite_code:code}}}));
   if(error){err.textContent=authErrorText(error);return;}
-  // 이미 가입된 이메일이면 Supabase는 오류 대신 identities가 빈 사용자를 돌려준다
   if(data.user&&Array.isArray(data.user.identities)&&!data.user.identities.length){err.textContent='이미 가입된 이메일이에요. 로그인 탭에서 로그인해주세요.';return;}
-  if(data.session){finishLogin(data.user);return;}
-  _pendingEmail=email;setAuthStep('verify');
-}
-async function submitVerify(ev){
-  ev.preventDefault();
-  const client=getSupabase();if(!client)return;
-  const token=document.getElementById('verifyCode').value.replace(/\D/g,'');
-  const err=document.getElementById('verifyError');err.textContent='';
-  if(token.length!==6){err.textContent='메일로 받은 6자리 숫자를 입력해주세요.';return;}
-  const res=await withBusy('verifyBtn','확인하는 중...',async()=>{
-    let r=await client.auth.verifyOtp({email:_pendingEmail,token,type:'email'});
-    if(r.error)r=await client.auth.verifyOtp({email:_pendingEmail,token,type:'signup'});
-    return r;
-  });
-  if(res.error){err.textContent=/expired|invalid/i.test(res.error.message||'')?'코드가 맞지 않거나 만료됐어요. 다시 받아서 입력해주세요.':authErrorText(res.error);return;}
-  showToast('이메일 인증이 끝났어요. 환영해요! 📚');
-  finishLogin(res.data.user);
-}
-async function resendCode(){
-  const client=getSupabase();if(!client||!_pendingEmail)return;
-  const err=document.getElementById('verifyError');
-  const{error}=await client.auth.resend({type:'signup',email:_pendingEmail});
-  err.textContent=error?authErrorText(error):'코드를 다시 보냈어요. 메일함(스팸함 포함)을 확인해주세요.';
+  if(!data.session){err.textContent='가입은 됐지만 이메일 인증이 켜져 있어서 바로 들어갈 수 없어요. 서재 주인에게 알려주세요.';return;}
+  showToast('가입을 환영해요! 📚');
+  finishLogin(data.user);
 }
 function isNotConfirmed(error){return error.code==='email_not_confirmed'||/not confirmed/i.test(error.message||'');}
 function authErrorText(error){
   const code=error.code||'',msg=(error.message||'').toLowerCase();
-  if(isNotConfirmed(error))return '이메일 인증이 안 된 계정이에요.';
+  if(isNotConfirmed(error))return '이메일 인증이 안 된 계정이에요. 서재 주인에게 알려주세요.';
+  if(msg.includes('database error saving new user'))return '가입 코드가 맞지 않아요.';
   if(code==='invalid_credentials'||msg.includes('invalid login'))return '이메일 또는 비밀번호가 맞지 않아요.';
   if(code==='user_already_exists'||msg.includes('already registered'))return '이미 가입된 이메일이에요. 로그인 탭에서 로그인해주세요.';
   if(code==='signup_disabled'||msg.includes('signups not allowed'))return '지금은 회원가입을 받지 않고 있어요.';
