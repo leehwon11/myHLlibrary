@@ -6,7 +6,7 @@
 <title>나의 서재</title>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Serif+KR:wght@400;600&family=Noto+Sans+KR:wght@400;500;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<link rel="stylesheet" href="css/style.css?v=11">
+<link rel="stylesheet" href="css/style.css?v=13">
 </head>
 <body>
 <header class="site-header">
@@ -356,6 +356,20 @@
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="hint" id="accountEmail"></span><button class="btn sm ml-auto" onclick="logout()">로그아웃</button></div>
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="sec-label">리디에서 서재로 보내기</div>
+      <p class="hint">리디 책 페이지에서 이 버튼을 누르면 책 정보를 서재로 바로 보내요. 내 리디 로그인으로 읽어서 <b>19세 작품도</b> 장르·태그·표지까지 불러와져요.</p>
+      <a class="btn primary bm-btn" id="ridiBookmarklet" href="#" onclick="event.preventDefault();showToast('이 버튼은 누르지 말고 북마크바로 끌어다 놓아주세요.');">📚 서재로 보내기</a>
+      <details class="bm-help">
+        <summary>설치 방법</summary>
+        <div class="bm-steps">
+          <p><b>PC (크롬·엣지)</b><br>위의 <b>📚 서재로 보내기</b> 버튼을 북마크바로 끌어다 놓아요. 리디 책 페이지에서 그 북마크를 누르면 끝.</p>
+          <p><b>휴대폰 (크롬)</b><br>① 아래 <b>코드 복사</b>를 눌러요.<br>② 아무 페이지나 북마크(☆)한 뒤, 북마크 수정에서 이름을 <b>서재로보내기</b>, 주소(URL)에 복사한 코드를 붙여넣어 저장해요.<br>③ 리디 책 페이지에서 주소창에 <b>서재로보내기</b>를 입력하고, 목록에 뜬 북마크(☆)를 눌러요.</p>
+          <div class="cover-url-row"><input type="text" id="ridiBookmarkletCode" readonly aria-label="버튼 코드"><button class="cover-url-btn" onclick="copyRidiBookmarklet()">코드 복사</button></div>
+          <p class="hint">19세 작품은 리디에 로그인하고 성인 인증이 된 상태여야 해요.</p>
+        </div>
+      </details>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
       <div class="sec-label">보여주기 모드</div>
       <p class="hint">친구에게 내 서재를 보여주는 읽기 전용 링크예요. 메모, 가격, 구매일, 추가 구매, 가계부는 빠지고 수정 버튼도 숨겨져요.</p>
       <label class="switch-row"><input type="checkbox" id="shareToggle" onchange="toggleShare(this.checked)"> 보여주기 링크 켜기</label>
@@ -428,13 +442,13 @@
 </div>
 
 
-<script src="js/app.js?v=11"></script>
-<script src="js/library.js?v=11"></script>
-<script src="js/stats.js?v=11"></script>
-<script src="js/calendar.js?v=11"></script>
-<script src="js/ledger.js?v=11"></script>
-<script src="js/home.js?v=11"></script>
-<script src="js/excerpts.js?v=11"></script>
+<script src="js/app.js?v=13"></script>
+<script src="js/library.js?v=13"></script>
+<script src="js/stats.js?v=13"></script>
+<script src="js/calendar.js?v=13"></script>
+<script src="js/ledger.js?v=13"></script>
+<script src="js/home.js?v=13"></script>
+<script src="js/excerpts.js?v=13"></script>
 <script>
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
@@ -449,6 +463,7 @@ document.addEventListener('DOMContentLoaded',async()=>{
   loadFilterState();
   render();
   switchPage('home');
+  handleRidiHash();
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){['editOv','profileOv','jsonOv','shareOv','settingsOv','libNameOv','confirmOv','importChoiceOv'].forEach(id=>{document.getElementById(id)?.classList.remove('open');});}});
 });
 </script>

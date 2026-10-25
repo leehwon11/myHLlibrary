@@ -471,6 +471,11 @@ body.dark .heatmap-cell.lv1{background:#4d2b3b}body.dark .heatmap-cell.lv2{backg
 .streak-card .ink-btn{align-self:flex-start;font-size:13px;padding:6px 14px}
 .cal-day[onclick]{cursor:pointer}
 
+/* ── 리디 북마크 버튼 ── */
+.bm-btn{align-self:flex-start;text-decoration:none;cursor:grab}
+.bm-help summary{cursor:pointer;font-size:13px;color:var(--acc);font-weight:600}
+.bm-steps{display:flex;flex-direction:column;gap:10px;margin-top:10px;font-size:13px;color:var(--txt2);line-height:1.7}
+
 /* ── 로그인 ── */
 .login-ov{background:var(--bg);backdrop-filter:none;z-index:400}
 .login-card{max-width:380px}
