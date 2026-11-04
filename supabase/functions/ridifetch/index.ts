@@ -6,6 +6,23 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey",
 };
 
+// 문자열 포함 여부가 아니라 파싱한 호스트·경로로 판단한다
+// (https://evil.com/?x=ridibooks.com/books/ 같은 주소를 막기 위함)
+function isRidiBookUrl(raw: string | null): boolean {
+  if (!raw) return false;
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== "https:" && u.protocol !== "http:") return false;
+  if (u.username || u.password || u.port) return false;
+  const host = u.hostname.toLowerCase();
+  if (host !== "ridibooks.com" && !host.endsWith(".ridibooks.com")) return false;
+  return u.pathname.startsWith("/books/");
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -14,7 +31,7 @@ serve(async (req: Request) => {
   const url = new URL(req.url);
   const target = url.searchParams.get("url");
 
-  if (!target || !target.includes("ridibooks.com/books/")) {
+  if (!target || !isRidiBookUrl(target)) {
     return new Response(JSON.stringify({ error: "Invalid URL" }), {
       status: 400,
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
