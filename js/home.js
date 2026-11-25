@@ -15,47 +15,52 @@ function renderHome(){
   const p=appSettings.profile||{};
   const year=new Date().getFullYear();
   const doneYear=books.filter(b=>b.status==='완독'&&b.dateend&&b.dateend.startsWith(String(year))).length;
-  const streak=calcStreaks().currentStreak;
+  const st=calcStreaks();
   const libName=getLibName();
   const photo=safeUrl(p.photo);
   const avatar=photo?`<img src="${escHtml(photo)}" alt="">`:escHtml((p.name||libName).trim().charAt(0)||'책');
   const tags=profileTags(p).map(t=>`<span class="chip">${escHtml(t)}</span>`).join('');
-
-  let h=`<section class="home-hero">
-    <div class="card profile-card">
-      <div class="avatar">${avatar}</div>
-      <div class="profile-info">
-        <div class="profile-name">${escHtml(p.name||libName)}<button class="edit-mini owner-only" onclick="openProfile()">편집</button></div>
-        <div class="profile-sub">올해 ${doneYear}권 완독${streak?` · ${streak}일 연속 독서 중`:''}</div>
-        ${VIEW_MODE?'':`<div>${readTodayBtn(calcStreaks().dateSet.has(localDate()),'read-btn')}</div>`}
-        ${p.intro?`<div class="profile-intro">${escHtml(p.intro)}</div>`:(p.name?'':`<div class="profile-intro">편집을 눌러 이름, 사진, 한 줄 소개를 넣어보세요.</div>`)}
-        ${tags?`<div class="profile-tags">${tags}</div>`:''}
-      </div>
-    </div>
-    ${todayExcerptHtml()}
-  </section>`;
+  const cnt=s=>books.filter(b=>b.status===s).length;
+  const goal=appSettings.yearlyGoal||0;
 
   if(!books.length){
-    h+=`<section class="card" style="align-items:flex-start"><div class="card-h">서재가 비어 있어요</div><p class="hint">첫 책을 추가하면 홈에 읽는 중인 책과 최근 완독한 책이 보여요.</p><button class="btn primary owner-only" onclick="openAdd()">+ 책 추가</button></section>`;
-    c.innerHTML=h;return;
+    c.innerHTML=`<section class="card" style="align-items:flex-start"><div class="card-h">서재가 비어 있어요</div><p class="hint">첫 책을 등록하면 여기에 읽는 중인 책, 다음에 읽을 책, 다 읽은 책이 정리돼요.</p><button class="btn primary owner-only" onclick="openAdd()">＋ 새 책 등록</button></section>`;
+    return;
   }
 
   const reading=books.filter(b=>b.status==='읽는중').sort((a,b)=>(b.datestart||'').localeCompare(a.datestart||''));
-  if(reading.length){
-    h+=`<section class="sec"><div class="sec-head"><h2 class="sec-title">지금 읽는 중</h2>${reading.length>4?`<button class="link-btn" onclick="goShelf('읽는중')">${reading.length}권 모두 보기</button>`:''}</div><div class="reading-grid">${reading.slice(0,4).map(b=>{
-      const ml=(Array.isArray(b.ml)?b.ml:[]).flatMap(m=>m.typeTags||[]).slice(0,2);
-      const meta=[...(b.genre||[]).slice(0,1),...ml].map(escHtml).join(' · ');
-      const [y,m,d]=(b.datestart||'').split('-');
-      return`<div class="card reading-card" onclick="openDetail('${b.id}')">${coverHtml(b)}<div class="rc-info"><div class="rc-title">${escHtml(b.title)}</div>${meta?`<div class="rc-meta">${meta}</div>`:''}<div class="rc-since">${b.datestart?`${Number(m)}월 ${Number(d)}일부터 읽는 중`:'읽는 중'}</div></div></div>`;
-    }).join('')}</div></section>`;
-  }
-
-  const done=books.filter(b=>b.status==='완독').sort((a,b)=>(b.dateend||b.createdAt||'').localeCompare(a.dateend||a.createdAt||''));
-  if(done.length) h+=shelfSection('최근 완독',done,'완독','책장 전체 보기');
   const wish=books.filter(b=>b.status==='읽고싶어요').sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
-  if(wish.length) h+=shelfSection('읽고 싶어요',wish,'읽고싶어요',`${wish.length}권 모두 보기`);
+  const done=books.filter(b=>b.status==='완독').sort((a,b)=>(b.dateend||b.createdAt||'').localeCompare(a.dateend||a.createdAt||''));
 
-  c.innerHTML=h;
+  const nowCard=b=>{
+    const [y,m,d]=(b.datestart||'').split('-');
+    const days=b.datestart?daysBetween(b.datestart,localDate()):0;
+    return`<div class="now-card" role="link" tabindex="0" onclick="openDetail('${b.id}')" onkeydown="if(event.key==='Enter')openDetail('${b.id}')">${coverHtml(b)}<div class="now-info"><span class="now-call">${escHtml(callNumber(b))}</span><span class="now-title">${escHtml(b.title)}</span><span class="now-meta">${escHtml(b.author||'작가 미상')}${b.platform?' · '+escHtml(b.platform):''}</span><span class="now-since">${b.datestart?`${y}. ${m}. ${d}. 대출${days?` · ${days}일째`:''}`:'읽는 중'}</span></div><span class="stamp st-읽는중">대출 중</span></div>`;
+  };
+  const row=(b,i,side,stamp)=>`<div class="ledger-row" role="link" tabindex="0" onclick="openDetail('${b.id}')" onkeydown="if(event.key==='Enter')openDetail('${b.id}')">${i!=null?`<span class="ledger-no">${String(i+1).padStart(2,'0')}</span>`:''}<span class="ledger-main"><span class="ledger-title">${escHtml(b.title)}</span><span class="ledger-sub">${escHtml(b.author||'작가 미상')}${b.rating?` · <span style="color:var(--star)">${'★'.repeat(b.rating)}</span>`:''}</span></span>${stamp||`<span class="ledger-side">${side||''}</span>`}</div>`;
+
+  let main=`<section class="sec"><div class="sec-head"><h2 class="sec-title">지금 읽는 책<small>대출 중 ${reading.length}</small></h2>${reading.length>3?`<button class="link-btn" onclick="goShelf('읽는중')">모두 보기</button>`:''}</div>`;
+  main+=reading.length?`<div style="display:flex;flex-direction:column;gap:12px">${reading.slice(0,3).map(nowCard).join('')}</div>`:`<div class="empty" style="padding:28px 20px">지금 읽는 책이 없어요.${wish.length?' 다음에 읽을 책에서 골라보세요.':''}</div>`;
+  if(!VIEW_MODE)main+=`<div class="stamp-row">${readTodayBtn(st.dateSet.has(localDate()),'stamp-btn')}<div class="streak-box"><b>${st.currentStreak}일</b><span>연속 열람</span></div></div>`;
+  main+=`</section>`;
+  if(wish.length)main+=`<section class="sec"><div class="sec-head"><h2 class="sec-title">다음에 읽을 책<small>예약 ${wish.length}</small></h2><button class="link-btn" onclick="goShelf('읽고싶어요')">전체 보기</button></div><div class="ledger-list">${wish.slice(0,5).map((b,i)=>row(b,i,`${fmtMD(String(b.createdAt||'').slice(0,10)).slice(5)} 예약`)).join('')}</div></section>`;
+  if(done.length)main+=`<section class="sec"><div class="sec-head"><h2 class="sec-title">최근 다 읽은 책<small>반납 ${done.length}</small></h2><button class="link-btn" onclick="goShelf('완독')">전체 보기</button></div><div class="ledger-list">${done.slice(0,5).map(b=>row(b,null,'',`<span class="stamp st-완독">${b.dateend?fmtMD(b.dateend).slice(5)+' ':''}완독</span>`)).join('')}</div></section>`;
+
+  const side=`<section class="library-card" aria-label="열람증">
+      <div class="library-card-head"><b>열 람 증</b><button class="edit-mini owner-only" onclick="openProfile()">편집</button></div>
+      <div class="library-card-body"><div class="avatar">${avatar}</div><div class="profile-info">
+        <div class="profile-name">${escHtml(p.name||libName)}</div>
+        <div class="profile-sub">올해 ${doneYear}권 완독${st.currentStreak?` · ${st.currentStreak}일 연속`:''}</div>
+        ${p.intro?`<div class="profile-intro">${escHtml(p.intro)}</div>`:(p.name||VIEW_MODE?'':`<div class="hint">편집을 눌러 이름, 사진, 한 줄 소개를 넣어보세요.</div>`)}
+        ${tags?`<div class="profile-tags">${tags}</div>`:''}
+      </div></div>
+    </section>
+    <section class="sec">${todayExcerptHtml()}</section>
+    <section class="sec"><h2 class="sec-title">올해 열람 현황</h2>
+      <table class="year-table"><thead><tr><th scope="col">읽는 중</th><th scope="col">완독</th><th scope="col">읽고 싶어요</th><th scope="col">하차</th></tr></thead><tbody><tr><td onclick="goShelf('읽는중')">${cnt('읽는중')}</td><td onclick="goShelf('완독')">${cnt('완독')}</td><td onclick="goShelf('읽고싶어요')">${cnt('읽고싶어요')}</td><td onclick="goShelf('하차')">${cnt('하차')}</td></tr></tbody></table>
+      <div class="goal-strip"><span>올해 목표</span><span><b>${doneYear}</b> / ${goal?goal+'권':'—'}</span></div>
+    </section>`;
+  c.innerHTML=`<div class="home-grid"><div class="home-main">${main}</div><div class="home-side">${side}</div></div>`;
 }
 
 function shelfSection(title,list,status,more){
@@ -87,16 +92,13 @@ function nextExcerpt(currentId){
 }
 
 function todayExcerptHtml(){
+  const head=more=>`<div class="sec-head"><h2 class="sec-title">오늘의 발췌</h2>${more||''}</div>`;
   const pick=pickExcerpt();
-  if(!pick) return`<div class="ink-card today-exc"><div class="today-exc-top"><span class="today-exc-label">오늘의 발췌</span></div><p class="today-exc-text" style="cursor:default">마음에 남은 문장을 발췌로 남겨두면, 매일 하나씩 여기에 보여드려요.</p></div>`;
+  if(!pick) return head()+`<figure class="index-card"><p class="hand" style="cursor:default">마음에 남은 문장을 발췌로 남겨두면, 매일 한 장씩 여기에 꽂아둘게요.</p></figure>`;
   const {e,b,groups}=pick;
   const total=groups.reduce((s,g)=>s+g.exc.length,0);
-  const chips=[e.speaker?`<span class="chip chip-ink">${escHtml(e.speaker)}</span>`:'',...(e.tags||[]).slice(0,3).map(t=>`<span class="chip chip-ink">${escHtml(t)}</span>`)].join('');
-  return`<div class="ink-card today-exc">
-    <div class="today-exc-top"><span class="today-exc-label">오늘의 발췌</span>${chips}</div>
-    <p class="today-exc-text" onclick="openDetail('${b.id}')">${escHtml(e.text)}</p>
-    <div class="today-exc-src"><span>「${escHtml(b.title)}」${e.location?' '+escHtml(e.location):''}</span>${total>1?`<button class="ink-btn" onclick="nextExcerpt('${b.id}')">다른 발췌</button>`:''}</div>
-  </div>`;
+  const more=total>1?`<button class="link-btn" onclick="nextExcerpt('${b.id}')">다른 발췌</button>`:'';
+  return head(more)+`<figure class="index-card${e.speaker?' spk-'+escHtml(e.speaker):''}" style="border-top-color:var(--spk,var(--red))"><p class="hand" onclick="openDetail('${b.id}')">${escHtml(e.text)}</p><figcaption><span>${escHtml(b.title)}${e.location?' · '+escHtml(e.location):''}</span>${e.speaker?`<span class="q-speaker spk-${escHtml(e.speaker)}">${escHtml(e.speaker)}</span>`:''}</figcaption></figure>`;
 }
 
 // ── 프로필 ──

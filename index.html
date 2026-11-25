@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>나의 서재</title>
-<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Serif+KR:wght@400;600&family=Noto+Sans+KR:wght@400;500;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Gowun+Batang:wght@400;700&family=Song+Myung&family=Nanum+Pen+Script&family=Noto+Serif+KR:wght@400;600&family=Noto+Sans+KR:wght@400;500;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<link rel="stylesheet" href="css/style.css?v=16">
+<link rel="stylesheet" href="css/style.css?v=17">
 </head>
 <body>
 <header class="site-header">
@@ -50,26 +50,30 @@
   <div class="page" id="page-library">
     <div class="page-head">
       <h1 class="page-title">책장<span class="page-count" id="shelfCount"></span></h1>
-      <div class="search-wrap"><span class="search-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg></span><input type="text" id="searchInput" placeholder="제목, 작가, 태그 검색" aria-label="책장 검색" oninput="render()"></div>
+      <button class="btn primary owner-only" onclick="openAdd()"><span aria-hidden="true">＋</span> 새 책 등록</button>
     </div>
     <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="shelf-bar">
+        <div class="search-wrap"><span class="search-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg></span><input type="text" id="searchInput" placeholder="제목, 작가, 태그, 청구기호" aria-label="책장 검색" oninput="render()"></div>
+        <div class="shelf-tools">
+          <select class="sort-select" id="sortSelect" onchange="render()" aria-label="정렬">
+            <option value="newest">최신 등록순</option>
+            <option value="oldest">오래된 순</option>
+            <option value="callno">청구기호순</option>
+            <option value="rating-desc">별점 높은 순</option>
+            <option value="rating-asc">별점 낮은 순</option>
+            <option value="title">제목 가나다순</option>
+            <option value="custom">사용자 지정 순서</option>
+          </select>
+          <button class="pill fav-pill" id="favPill" onclick="toggleFavFilter()">★ 즐겨찾기만</button>
+        </div>
+      </div>
       <div class="status-tabs" id="statusPillsWrap">
         <button class="sp sp-on" data-sv="" onclick="setStatusFilter('')">전체<span class="sp-count"></span></button>
-        <button class="sp" data-sv="완독" onclick="setStatusFilter('완독')">완독<span class="sp-count"></span></button>
         <button class="sp" data-sv="읽는중" onclick="setStatusFilter('읽는중')">읽는 중<span class="sp-count"></span></button>
+        <button class="sp" data-sv="완독" onclick="setStatusFilter('완독')">완독<span class="sp-count"></span></button>
         <button class="sp" data-sv="읽고싶어요" onclick="setStatusFilter('읽고싶어요')">읽고 싶어요<span class="sp-count"></span></button>
         <button class="sp" data-sv="하차" onclick="setStatusFilter('하차')">하차<span class="sp-count"></span></button>
-      </div>
-      <div class="shelf-tools">
-        <button class="pill fav-pill" id="favPill" onclick="toggleFavFilter()">★ 즐겨찾기</button>
-        <select class="sort-select" id="sortSelect" onchange="render()" aria-label="정렬">
-          <option value="newest">최신 등록순</option>
-          <option value="oldest">오래된 순</option>
-          <option value="rating-desc">별점 높은 순</option>
-          <option value="rating-asc">별점 낮은 순</option>
-          <option value="title">제목 가나다순</option>
-          <option value="custom">사용자 지정 순서</option>
-        </select>
       </div>
       <div class="grid" id="bookGrid"></div>
     </div>
@@ -91,7 +95,7 @@
         </div>
         <div class="cal-grid" id="calDaysHeader"></div>
         <div class="cal-grid" id="calDays"></div>
-        <div class="cal-legend"><span><i style="background:var(--amber-bg)"></i>읽은 날</span><span><i style="border:2px solid var(--acc)"></i>오늘</span></div>
+        <div class="cal-legend"><span><i class="read-mark"></i>읽은 날</span><span><i class="today-mark"></i>오늘</span><span class="hint">칸을 눌러 도장을 찍거나 지워요</span></div>
       </section>
       <aside class="cal-side">
         <section class="ink-card streak-card" id="streakCard"></section>
@@ -120,144 +124,144 @@
   </div>
 </main>
 
-<!-- EDIT MODAL -->
+<!-- EDIT MODAL : 도서 등록부 -->
 <div class="ov edit-ov" id="editOv" onclick="ovClick(event,'editOv',closeEdit)">
-<div class="modal" style="max-width:1000px;max-height:92vh">
-  <div class="modal-head"><h2 id="editModalTitle">책 추가</h2><button class="btn-x" onclick="closeEdit()" aria-label="닫기">✕</button></div>
+<div class="modal" style="max-width:1100px;max-height:94vh">
+  <div class="modal-head"><h2 id="editModalTitle">도서 등록부</h2><button class="btn-x" onclick="closeEdit()" aria-label="닫기">✕</button></div>
   <nav class="edit-nav" aria-label="입력 항목 바로가기">
-    <button type="button" onclick="jumpEdit('sec-basic')">기본</button>
-    <button type="button" onclick="jumpEdit('sec-tags')">태그</button>
-    <button type="button" onclick="jumpEdit('sec-chars')">인물</button>
-    <button type="button" onclick="jumpEdit('sec-status')">상태·날짜</button>
-    <button type="button" onclick="jumpEdit('sec-review')">후기</button>
-    <button type="button" onclick="jumpEdit('sec-exc')">재독·발췌</button>
+    <button type="button" onclick="jumpEdit('sec-basic')">1 기본</button>
+    <button type="button" onclick="jumpEdit('sec-tags')">2 분류</button>
+    <button type="button" onclick="jumpEdit('sec-chars')">3 인물</button>
+    <button type="button" onclick="jumpEdit('sec-status')">4 상태</button>
+    <button type="button" onclick="jumpEdit('sec-review')">5 줄거리·후기</button>
+    <button type="button" onclick="jumpEdit('sec-exc')">6 발췌</button>
+    <button type="button" onclick="jumpEdit('sec-log')">7 기록</button>
   </nav>
   <div class="modal-body">
-    <div class="form-grid">
-      <div class="cover-col">
-        <div class="cover-box" id="coverBox">
-          <div class="cover-hint"><span class="ci">🔗</span>아래에<br>이미지 URL을 입력하세요</div>
-        </div>
-        <div class="cover-acts">
-          <button class="btn sm danger" onclick="removeCover()">표지 삭제</button>
-        </div>
-        <div class="cover-url-row">
-          <input type="url" id="coverUrlInput" placeholder="이미지 URL">
-          <button class="cover-url-btn" onclick="applyCoverUrl()">적용</button>
-        </div>
-        <div style="width:100%;margin-top:6px">
-          <div style="font-size:10px;font-weight:600;color:var(--txt4);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">리디 자동 입력</div>
-          <div class="cover-url-row">
-            <input type="url" id="ridiUrlInput" placeholder="https://ridibooks.com/books/...">
-            <button class="cover-url-btn" onclick="fetchRidiBook()" id="ridiUrlBtn">불러오기</button>
-          </div>
-        </div>
-      </div>
-      <div class="fl-col">
-        <div class="sec-label" id="sec-basic">기본 정보</div>
-        <div class="fg"><label>제목 *</label><input type="text" id="f-title" placeholder="책 제목"></div>
-        <div class="row2">
-          <div class="fg"><label>작가</label><input type="text" id="f-author" placeholder="저자명"></div>
-          <div class="fg"><label>장르</label>
-            <div class="ctag-wrap">
-              <div class="ctag-input-row">
-                <input type="text" id="genreInput" placeholder="로판, 현판 ..." onkeydown="if(event.key==='Enter'){event.preventDefault();addGenreTag();}">
-                <button class="ctag-add-btn" onclick="addGenreTag()">+</button>
-              </div>
-              <div class="quick-tags" id="quickTagsGenre"></div>
-              <div class="selected-tags" id="selectedGenreTags"></div>
-            </div>
-          </div>
-        </div>
-        <div class="row2">
-          <div class="fg"><label>책 종류</label>
-            <select id="f-booktype"><option value="">미선택</option><option value="단행본">단행본</option><option value="웹소설">웹소설</option><option value="전자책">전자책</option><option value="기타">기타</option></select>
-          </div>
-          <div class="fg"><label>이용가</label>
-            <select id="f-agerating"><option value="">미선택</option><option value="전체">전체</option><option value="15세">15세</option><option value="19세">19세 🔞</option></select>
-          </div>
-        </div>
-        <div class="row3">
-          <div class="fg"><label>구매 플랫폼</label><input type="text" id="f-platform" placeholder="리디, 카카오 ..."></div>
-          <div class="fg"><label>작품 URL</label><input type="url" id="f-platformurl" placeholder="https://..."></div>
-          <div class="fg"><label>금액 (원)</label><input type="number" id="f-price" placeholder="0" min="0"></div>
-        </div>
-        <div class="fg" id="sec-tags"><label>소재 태그</label>
-          <div class="ctag-wrap">
-            <div class="ctag-input-row"><input type="text" id="ctagInputSojai" placeholder="#계약결혼, #환생 ..." oninput="showTagAC(this,addCtagFromInputSojai,'sojai')" onkeydown="if(event.key==='Enter'){event.preventDefault();addCtagFromInputSojai();hideTagAC();}" onblur="setTimeout(hideTagAC,150)"><button class="ctag-add-btn" onclick="addCtagFromInputSojai()">+</button></div>
-            <div class="quick-tags" id="quickTagsSojai"></div>
-            <div class="selected-tags" id="selectedTagsSojai"></div>
-          </div>
-        </div>
-        <div class="fg"><label>관계 태그</label>
-          <div class="ctag-wrap">
-            <div class="ctag-input-row"><input type="text" id="ctagInputRel" placeholder="#소꿉친구, #집착남 ..." oninput="showTagAC(this,addCtagFromInputRel,'rel')" onkeydown="if(event.key==='Enter'){event.preventDefault();addCtagFromInputRel();hideTagAC();}" onblur="setTimeout(hideTagAC,150)"><button class="ctag-add-btn" onclick="addCtagFromInputRel()">+</button></div>
-            <div class="quick-tags" id="quickTagsRel"></div>
-            <div class="selected-tags" id="selectedTagsRel"></div>
-          </div>
-        </div>
-        <div class="fg"><label>감정 태그</label><div class="mood-selector" id="moodSelector"></div></div>
-        <div class="fg" id="sec-chars"><label>남주 정보</label>
-          <div class="ml-acc-wrap" id="mlAccWrap"></div>
-          <button class="add-ml-btn" onclick="addMlEntry()">💙 남주 추가</button>
-        </div>
-        <div class="fg"><label>여주 정보</label>
-          <div style="background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:8px">
-            <div style="font-size:11px;font-weight:700;color:var(--rose);text-transform:uppercase;letter-spacing:.06em">🩷 여주</div>
-            <div class="row2">
-              <div class="fg"><label>이름</label><input type="text" id="f-fl-name"></div>
-              <div class="fg"><label>나이</label><input type="text" id="f-fl-age"></div>
-            </div>
-            <div class="fg"><label>유형 태그</label>
-              <div class="ctag-wrap">
-                <div class="ctag-input-row"><input type="text" id="ctagInputFlType" placeholder="#츤데레녀, #악녀 ..." oninput="showTagAC(this,addCtagFlType,'fl')" onkeydown="if(event.key==='Enter'){event.preventDefault();addCtagFlType();hideTagAC();}" onblur="setTimeout(hideTagAC,150)"><button class="ctag-add-btn" onclick="addCtagFlType()">+</button></div>
-                <div class="quick-tags" id="quickTagsFlType"></div>
-                <div class="selected-tags" id="selectedFlTypeTags"></div>
-              </div>
-            </div>
-            <div class="fg"><label>소개</label><textarea id="f-fl-intro" rows="2" oninput="autosizeEl(this)"></textarea></div>
-          </div>
-        </div>
-        <div class="fg" id="sec-status"><label>독서 상태</label>
-          <div class="status-selector" id="statusSelector">
-            <button class="st-opt" data-v="읽고싶어요" onclick="setStatus('읽고싶어요')">🔖 읽고 싶어요</button>
-            <button class="st-opt" data-v="읽는중" onclick="setStatus('읽는중')">📖 읽는 중</button>
-            <button class="st-opt" data-v="완독" onclick="setStatus('완독')">✅ 완독</button>
-            <button class="st-opt" data-v="하차" onclick="setStatus('하차')">🚪 하차</button>
-          </div>
-        </div>
-        <div class="dnf-box" id="dnfFields" style="display:none">
-          <div class="row2">
-            <div class="fg"><label>하차 지점</label><input type="text" id="f-dnf-at" placeholder="예: 52화, 2권 중반"></div>
-            <div class="fg"><label>하차일</label><input type="date" id="f-dnf-date"></div>
-          </div>
-          <div class="fg"><label>하차 이유</label><textarea id="f-dnf-reason" rows="2" placeholder="남주가 선 넘음, 전개가 늘어짐 ..." oninput="autosizeEl(this)"></textarea></div>
-        </div>
+    <div class="form-cols">
+      <div class="form-col">
 
-        <div class="sec-label" style="margin-top:2px">날짜</div>
-        <div class="row3">
-          <div class="fg"><label>구매일</label><input type="date" id="f-datebuy"></div>
-          <div class="fg"><label>읽기 시작</label><input type="date" id="f-datestart"></div>
-          <div class="fg"><label>완독일</label><input type="date" id="f-dateend"></div>
-        </div>
-        <div class="sec-label" style="margin-top:2px">추가 구매 <span style="font-weight:400;text-transform:none;letter-spacing:0">(외전, 편당 결제 등)</span></div>
-        <div class="reread-list" id="purchaseList"></div>
-        <button class="add-reread-btn" onclick="addPurchase()">＋ 추가 구매 기록</button>
-        <div class="sec-label" id="sec-review" style="margin-top:2px">후기</div>
-        <div class="fg"><label>별점</label>
-          <div class="star-row" id="starRow">
-            <span class="star-label" id="starLabel"></span>
+        <section class="fset" id="sec-basic">
+          <h3 class="fset-title">1. 기본 사항</h3>
+          <div class="ridi-box">
+            <input type="url" id="ridiUrlInput" placeholder="리디 주소를 붙여넣으면 자동으로 채워요" aria-label="리디 책 주소">
+            <button type="button" class="cover-url-btn" onclick="fetchRidiBook()" id="ridiUrlBtn">불러오기</button>
           </div>
-        </div>
-        <div class="fg"><label>줄거리</label><textarea id="f-summary" placeholder="간략한 줄거리..." rows="3" oninput="autosizeEl(this)"></textarea></div>
-        <div class="fg"><label>총평</label><textarea id="f-review" placeholder="읽고 난 감상..." rows="3" oninput="autosizeEl(this)"></textarea></div>
-        <div class="fg"><label>메모 <span style="font-size:10px;color:var(--txt4);font-weight:400">(스포일러, 개인 메모 등)</span></label><textarea id="f-memo" placeholder="스포일러나 개인 메모..." rows="2" oninput="autosizeEl(this)"></textarea></div>
-        <div class="sec-label" id="sec-exc" style="margin-top:2px">재독 기록</div>
-        <div class="reread-list" id="rereadList"></div>
-        <button class="add-reread-btn" onclick="addReread()">＋ 회독 추가</button>
-        <div class="sec-label" style="margin-top:2px">발췌</div>
-        <div class="excerpts-wrap" id="excerptsWrap"></div>
-        <button class="add-excerpt-btn" onclick="addExcerpt()">＋ 발췌 추가</button>
+          <div class="reg">
+            <div class="cover-reg">
+              <div class="cover-box" id="coverBox"><div class="cover-hint">표지</div></div>
+              <div class="cover-side">
+                <span class="hint">표지 이미지 주소</span>
+                <div class="cover-url-row"><input type="url" id="coverUrlInput" placeholder="https://" aria-label="표지 이미지 주소"><button type="button" class="cover-url-btn" onclick="applyCoverUrl()">적용</button></div>
+                <button type="button" class="btn sm danger" style="align-self:flex-start" onclick="removeCover()">표지 삭제</button>
+              </div>
+            </div>
+            <div class="reg-row"><label for="f-title">서명 *</label><input type="text" id="f-title" class="title-input" placeholder="책 제목" oninput="updateCallnoHint()"></div>
+            <div class="reg-row"><label for="f-author">저자</label><input type="text" id="f-author" placeholder="작가 이름" oninput="updateCallnoHint()"></div>
+            <div class="reg-row"><label for="f-callno">청구기호</label><div class="reg-field"><input type="text" id="f-callno" placeholder="자동" onfocus="updateCallnoHint()"><span class="reg-note">비워두면 장르·저자·제목으로 자동으로 붙어요</span></div></div>
+            <div class="reg-row"><label for="f-platform">소장처</label><div class="reg-field"><input type="text" id="f-platform" placeholder="리디, 카카오페이지 ..."><div class="choice-row"><button type="button" class="mini-choice" onclick="setPlatform('리디')">리디</button><button type="button" class="mini-choice" onclick="setPlatform('카카오페이지')">카카오페이지</button><button type="button" class="mini-choice" onclick="setPlatform('네이버 시리즈')">네이버 시리즈</button></div></div></div>
+            <div class="reg-row"><label for="f-platformurl">작품 주소</label><input type="url" id="f-platformurl" placeholder="https://"></div>
+            <div class="reg-row"><span class="reg-label">형태</span><div class="reg-field"><input type="hidden" id="f-booktype"><div class="choice-row" id="booktypeChoices"></div></div></div>
+            <div class="reg-row"><span class="reg-label">이용가</span><div class="reg-field"><input type="hidden" id="f-agerating"><div class="choice-row" id="ageChoices"></div></div></div>
+          </div>
+        </section>
+
+        <section class="fset" id="sec-tags">
+          <h3 class="fset-title">2. 분류 <small>남주·여주 유형은 3번 등장인물에서 적어요</small></h3>
+          <div class="reg tag-reg">
+            <div class="reg-row"><span class="reg-label">장르</span><div class="reg-field"><div class="ctag-wrap">
+              <div class="selected-tags" id="selectedGenreTags"></div>
+              <div class="ctag-input-row"><input type="text" id="genreInput" placeholder="서양풍, 현대물 ..." aria-label="장르 입력" onkeydown="if(event.key==='Enter'){event.preventDefault();addGenreTag();}"><button type="button" class="ctag-add-btn" onclick="addGenreTag()" aria-label="장르 추가">+</button></div>
+              <div class="quick-tags" id="quickTagsGenre"></div>
+            </div></div></div>
+            <div class="reg-row"><span class="reg-label">소재</span><div class="reg-field"><div class="ctag-wrap">
+              <div class="selected-tags" id="selectedTagsSojai"></div>
+              <div class="ctag-input-row"><input type="text" id="ctagInputSojai" placeholder="#계약결혼, #환생 ..." aria-label="소재 태그 입력" oninput="showTagAC(this,addCtagFromInputSojai,'sojai')" onkeydown="if(event.key==='Enter'){event.preventDefault();addCtagFromInputSojai();hideTagAC();}" onblur="setTimeout(hideTagAC,150)"><button type="button" class="ctag-add-btn" onclick="addCtagFromInputSojai()" aria-label="소재 태그 추가">+</button></div>
+              <div class="quick-tags" id="quickTagsSojai"></div>
+            </div></div></div>
+            <div class="reg-row"><span class="reg-label">관계</span><div class="reg-field"><div class="ctag-wrap">
+              <div class="selected-tags" id="selectedTagsRel"></div>
+              <div class="ctag-input-row"><input type="text" id="ctagInputRel" placeholder="#소꿉친구, #정략결혼 ..." aria-label="관계 태그 입력" oninput="showTagAC(this,addCtagFromInputRel,'rel')" onkeydown="if(event.key==='Enter'){event.preventDefault();addCtagFromInputRel();hideTagAC();}" onblur="setTimeout(hideTagAC,150)"><button type="button" class="ctag-add-btn" onclick="addCtagFromInputRel()" aria-label="관계 태그 추가">+</button></div>
+              <div class="quick-tags" id="quickTagsRel"></div>
+            </div></div></div>
+          </div>
+        </section>
+
+        <section class="fset" id="sec-chars">
+          <h3 class="fset-title">3. 등장인물 <small>사진은 넣어도 되고 안 넣어도 돼요</small></h3>
+          <div class="ml-acc-wrap" id="mlAccWrap"></div>
+          <button type="button" class="add-ml-btn" onclick="addMlEntry()">+ 남주 · 서브남 추가</button>
+          <div class="ml-acc-item">
+            <div class="ml-acc-head" style="cursor:default"><span class="ml-acc-label fl">여주</span><span class="ml-acc-summary"></span></div>
+            <div class="ml-acc-body open">
+              <div class="photo-row" id="flPhotoRow"></div>
+              <div class="row2">
+                <div class="fg"><label for="f-fl-name">이름</label><input type="text" id="f-fl-name"></div>
+                <div class="fg"><label for="f-fl-age">나이·신분</label><input type="text" id="f-fl-age"></div>
+              </div>
+              <div class="fg"><span class="flabel">여주 유형</span>
+                <div class="ctag-wrap">
+                  <div class="selected-tags" id="selectedFlTypeTags"></div>
+                  <div class="ctag-input-row"><input type="text" id="ctagInputFlType" placeholder="#능력녀, #걸크러시 ..." aria-label="여주 유형 입력" oninput="showTagAC(this,addCtagFlType,'fl')" onkeydown="if(event.key==='Enter'){event.preventDefault();addCtagFlType();hideTagAC();}" onblur="setTimeout(hideTagAC,150)"><button type="button" class="ctag-add-btn" onclick="addCtagFlType()" aria-label="여주 유형 추가">+</button></div>
+                  <div class="quick-tags" id="quickTagsFlType"></div>
+                </div>
+              </div>
+              <div class="fg"><label for="f-fl-intro">소개</label><textarea id="f-fl-intro" rows="1" oninput="autosizeEl(this)"></textarea></div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+      <div class="form-col">
+
+        <section class="fset" id="sec-status">
+          <h3 class="fset-title">4. 독서 상태</h3>
+          <div class="status-selector" id="statusSelector">
+            <button type="button" class="st-opt" data-v="읽고싶어요" onclick="setStatus('읽고싶어요')">읽고 싶어요</button>
+            <button type="button" class="st-opt" data-v="읽는중" onclick="setStatus('읽는중')">읽는 중</button>
+            <button type="button" class="st-opt" data-v="완독" onclick="setStatus('완독')">완독</button>
+            <button type="button" class="st-opt" data-v="하차" onclick="setStatus('하차')">하차</button>
+          </div>
+          <div class="dnf-box" id="dnfFields" style="display:none">
+            <div class="row2">
+              <div class="fg"><label for="f-dnf-at">하차 지점</label><input type="text" id="f-dnf-at" placeholder="예: 52화, 2권 중반"></div>
+              <div class="fg"><label for="f-dnf-date">하차일</label><input type="date" id="f-dnf-date"></div>
+            </div>
+            <div class="fg"><label for="f-dnf-reason">하차 이유</label><textarea id="f-dnf-reason" rows="1" placeholder="남주가 선 넘음, 전개가 늘어짐 ..." oninput="autosizeEl(this)"></textarea></div>
+          </div>
+          <div class="reg">
+            <div class="reg-row"><label for="f-datestart">시작일</label><input type="date" id="f-datestart"></div>
+            <div class="reg-row"><label for="f-dateend">완독일</label><input type="date" id="f-dateend"></div>
+            <div class="reg-row"><span class="reg-label">별점</span><div class="reg-field"><div class="star-row" id="starRow"><span class="star-label" id="starLabel"></span></div></div></div>
+          </div>
+        </section>
+
+        <section class="fset" id="sec-review">
+          <h3 class="fset-title">5. 줄거리와 후기 <small>쓰는 만큼 칸이 늘고 줄어요</small></h3>
+          <div class="fg"><label for="f-summary">줄거리</label><textarea id="f-summary" placeholder="리디에서 불러오거나 직접 적어요" rows="2" oninput="autosizeEl(this)"></textarea></div>
+          <div class="fg"><span class="flabel">감정 도장 · 후기 위에 찍혀요</span><div class="mood-selector" id="moodSelector"></div></div>
+          <div class="fg"><label for="f-review">후기</label><textarea id="f-review" class="note-area" placeholder="읽고 난 감상을 적어요" rows="2" oninput="autosizeEl(this)"></textarea></div>
+          <div class="fg"><label for="f-memo">메모 · 스포일러는 상세에서 가려져요</label><textarea id="f-memo" placeholder="스포일러나 개인 메모" rows="1" oninput="autosizeEl(this)"></textarea></div>
+        </section>
+
+        <section class="fset" id="sec-exc">
+          <h3 class="fset-title">6. 발췌 <small id="excCountLabel"></small></h3>
+          <div class="excerpts-wrap" id="excerptsWrap"></div>
+          <button type="button" class="add-excerpt-btn" onclick="addExcerpt()"><svg width="22" height="16" viewBox="0 0 22 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="1" y="1" width="20" height="14"></rect><path d="M1 5h20M11 8v5M8.5 10.5h5"></path></svg>새 발췌 카드 추가</button>
+        </section>
+
+        <section class="fset" id="sec-log">
+          <h3 class="fset-title">7. 대출·구입 기록</h3>
+          <div class="reg">
+            <div class="reg-row"><label for="f-price">금액 (원)</label><input type="number" id="f-price" placeholder="0" min="0" inputmode="numeric"></div>
+            <div class="reg-row"><label for="f-datebuy">구입일</label><input type="date" id="f-datebuy"></div>
+          </div>
+          <div class="reg">
+            <div class="reg-row"><span class="reg-label">추가 구입</span><div class="reg-field"><div class="reread-list" id="purchaseList"></div><button type="button" class="add-reread-btn" onclick="addPurchase()">+ 구입 (외전, 편당 결제 등)</button></div></div>
+            <div class="reg-row"><span class="reg-label">재독</span><div class="reg-field"><div class="reread-list" id="rereadList"></div><button type="button" class="add-reread-btn" onclick="addReread()">+ 재독</button></div></div>
+          </div>
+        </section>
+
       </div>
     </div>
   </div>
@@ -268,6 +272,19 @@
       <button class="btn primary" onclick="saveBook()">저장</button>
     </div>
   </div>
+</div>
+</div>
+
+<!-- 사진 1:1 자르기 -->
+<div class="ov" id="cropOv" onclick="ovClick(event,'cropOv',closeCrop)">
+<div class="modal" style="max-width:420px">
+  <div class="modal-head"><h2>사진 자르기 · 1:1</h2><button class="btn-x" onclick="closeCrop()" aria-label="닫기">✕</button></div>
+  <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
+    <div class="crop-stage" id="cropStage"><img id="cropImg" alt=""><div class="crop-frame"></div></div>
+    <label class="crop-zoom">확대<input type="range" id="cropZoom" min="1" max="4" step="0.01" value="1" oninput="setCropZoom(this.value)"></label>
+    <p class="hint" style="text-align:center">사진을 끌어서 위치를 맞추고, 막대로 크기를 조절해요.</p>
+  </div>
+  <div class="modal-foot"><div class="ml-auto" style="display:flex;gap:8px"><button class="btn" onclick="closeCrop()">취소</button><button class="btn primary" onclick="confirmCrop()">1:1로 자르기</button></div></div>
 </div>
 </div>
 
@@ -450,13 +467,13 @@
 </div>
 
 
-<script src="js/app.js?v=16"></script>
-<script src="js/library.js?v=16"></script>
-<script src="js/stats.js?v=16"></script>
-<script src="js/calendar.js?v=16"></script>
-<script src="js/ledger.js?v=16"></script>
-<script src="js/home.js?v=16"></script>
-<script src="js/excerpts.js?v=16"></script>
+<script src="js/app.js?v=17"></script>
+<script src="js/library.js?v=17"></script>
+<script src="js/stats.js?v=17"></script>
+<script src="js/calendar.js?v=17"></script>
+<script src="js/ledger.js?v=17"></script>
+<script src="js/home.js?v=17"></script>
+<script src="js/excerpts.js?v=17"></script>
 <script>
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
@@ -472,7 +489,7 @@ document.addEventListener('DOMContentLoaded',async()=>{
   render();
   handleRidiHash();
   initRoute();
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'){['editOv','profileOv','jsonOv','shareOv','settingsOv','libNameOv','confirmOv','importChoiceOv'].forEach(id=>{document.getElementById(id)?.classList.remove('open');});}});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){['cropOv','editOv','profileOv','jsonOv','shareOv','settingsOv','libNameOv','confirmOv','importChoiceOv'].forEach(id=>{document.getElementById(id)?.classList.remove('open');});}});
 });
 </script>
 </body>

@@ -353,7 +353,7 @@ function renderFlTypeTags(){_renderTagsToWrap(currentFlTypeTags,'selectedFlTypeT
 function addCtagFromInputSojai(directVal){const inp=document.getElementById('ctagInputSojai');let v=directVal!==undefined?directVal:(inp?inp.value.trim():'');if(!v)return;if(!v.startsWith('#'))v='#'+v;if(!currentCtagsSojai.includes(v)){currentCtagsSojai.push(v);renderTagsSojai();}if(inp&&directVal===undefined)inp.value='';}
 function addCtagFromInputRel(directVal){const inp=document.getElementById('ctagInputRel');let v=directVal!==undefined?directVal:(inp?inp.value.trim():'');if(!v)return;if(!v.startsWith('#'))v='#'+v;if(!currentCtagsRel.includes(v)){currentCtagsRel.push(v);renderTagsRel();}if(inp&&directVal===undefined)inp.value='';}
 function addCtagFlType(directVal){const inp=document.getElementById('ctagInputFlType');let v=directVal!==undefined?directVal:(inp?inp.value.trim():'');if(!v)return;if(!v.startsWith('#'))v='#'+v;if(!currentFlTypeTags.includes(v)){currentFlTypeTags.push(v);renderFlTypeTags();}if(inp&&directVal===undefined)inp.value='';}
-function renderGenreTags(){_renderTagsToWrap(currentGenreTags,'selectedGenreTags',t=>{currentGenreTags=currentGenreTags.filter(x=>x!==t);renderGenreTags();});renderQuickTagsGenre();}
+function renderGenreTags(){_renderTagsToWrap(currentGenreTags,'selectedGenreTags',t=>{currentGenreTags=currentGenreTags.filter(x=>x!==t);renderGenreTags();});renderQuickTagsGenre();if(typeof updateCallnoHint==='function')updateCallnoHint();}
 async function addGenreTag(directVal){const inp=document.getElementById('genreInput');const val=directVal!==undefined?directVal:(inp?inp.value.trim():'');if(!val)return;if(!currentGenreTags.includes(val)){currentGenreTags.push(val);renderGenreTags();}if(inp&&directVal===undefined)inp.value='';}
 
 // ══════════════ 자주 쓰는 태그(quick-pick) ══════════════
@@ -400,17 +400,18 @@ function renderMlAcc(){
     const isSub=!!m.sub;const item=document.createElement('div');item.className='ml-acc-item';
     const head=document.createElement('div');head.className='ml-acc-head';head.onclick=()=>toggleMlEntry(m.id);
     const arrow=document.createElement('span');arrow.className='ml-acc-arrow'+(m.open?' open':'');arrow.innerHTML='&#9654;';
-    const lbl=document.createElement('span');lbl.className='ml-acc-label'+(isSub?' sub':'');lbl.textContent=(isSub?'🩵':'💙')+' '+(isSub?'서브남':'남주');
+    const lbl=document.createElement('span');lbl.className='ml-acc-label'+(isSub?' sub':'');lbl.textContent=isSub?'서브남':'남주';
     const smry=document.createElement('span');smry.className='ml-acc-summary';smry.textContent=m.name||'(이름 없음)';
-    const del=document.createElement('button');del.className='ml-acc-del';del.textContent='✕';del.onclick=e=>{e.stopPropagation();removeMlEntry(m.id);};
+    const del=document.createElement('button');del.type='button';del.className='ml-acc-del';del.setAttribute('aria-label',(isSub?'서브남':'남주')+' 지우기');del.textContent='✕';del.onclick=e=>{e.stopPropagation();removeMlEntry(m.id);};
     head.appendChild(arrow);head.appendChild(lbl);head.appendChild(smry);head.appendChild(del);
     const body=document.createElement('div');body.className='ml-acc-body'+(m.open?' open':'');
     const inner=document.createElement('div');inner.style.cssText='display:flex;flex-direction:column;gap:8px';
-    const checkRow=document.createElement('label');checkRow.className='ml-sub-check-row';checkRow.innerHTML=`<input type="checkbox" ${isSub?'checked':''} onchange="syncMl('${m.id}','sub',this.checked);renderMlAcc()"> <span>서브남</span>`;
+    const photoRow=document.createElement('div');photoRow.className='photo-row';photoRow.innerHTML=photoSlotHtml(m.id,m.photo);
+    const checkRow=document.createElement('label');checkRow.className='ml-sub-check-row';checkRow.innerHTML=`<input type="checkbox" ${isSub?'checked':''} onchange="syncMl('${m.id}','sub',this.checked);renderMlAcc()"> <span>서브남이에요</span>`;
     const fields=document.createElement('div');fields.className='row2';
     const mkFg=(lbl,val,field)=>{const d=document.createElement('div');d.className='fg';const l=document.createElement('label');l.textContent=lbl;const i=document.createElement('input');i.type='text';i.value=val||'';i.oninput=(function(mid,f){return function(){syncMl(mid,f,this.value);};})(m.id,field);d.appendChild(l);d.appendChild(i);return d;};
-    fields.appendChild(mkFg('이름',m.name,'name'));fields.appendChild(mkFg('나이',m.age,'age'));
-    const typeWrap=document.createElement('div');typeWrap.className='fg';typeWrap.innerHTML='<label>유형 태그</label>';
+    fields.appendChild(mkFg('이름',m.name,'name'));fields.appendChild(mkFg('나이·신분',m.age,'age'));
+    const typeWrap=document.createElement('div');typeWrap.className='fg';typeWrap.innerHTML=`<span class="flabel">${isSub?'서브남':'남주'} 유형</span>`;
     const typeCtag=document.createElement('div');typeCtag.className='ctag-wrap';
     const typeInputRow=document.createElement('div');typeInputRow.className='ctag-input-row';
     const typeInput=document.createElement('input');typeInput.type='text';typeInput.placeholder='#연하남, #집착남 ...';
@@ -418,11 +419,11 @@ function renderMlAcc(){
     const mlQuickWrap=document.createElement('div');mlQuickWrap.className='quick-tags';mlQuickWrap.id='mlQuickTags-'+m.id;
     const addFn=(function(mid,inp,wrap){return function(){let val=inp.value.trim();if(!val)return;if(!val.startsWith('#'))val='#'+val;const m=mlData.find(x=>x.id===mid);if(!m)return;if(!m.typeTags)m.typeTags=[];if(!m.typeTags.includes(val)){m.typeTags.push(val);_renderMlTypeTag(mid,val,wrap);renderQuickTagsMl(mid,wrap);}inp.value='';};})(m.id,typeInput,typeTagsWrap);
     typeInput.oninput=function(){showTagAC(this,addFn,'ml');};typeInput.onblur=function(){setTimeout(hideTagAC,150);};typeInput.onkeydown=function(ev){if(ev.key==='Enter'){ev.preventDefault();addFn();hideTagAC();}};
-    const typeAddBtn=document.createElement('button');typeAddBtn.className='ctag-add-btn';typeAddBtn.textContent='+';typeAddBtn.onclick=addFn;
-    typeInputRow.appendChild(typeInput);typeInputRow.appendChild(typeAddBtn);typeCtag.appendChild(typeInputRow);typeCtag.appendChild(mlQuickWrap);typeCtag.appendChild(typeTagsWrap);typeWrap.appendChild(typeCtag);
+    const typeAddBtn=document.createElement('button');typeAddBtn.type='button';typeAddBtn.setAttribute('aria-label','유형 추가');typeAddBtn.className='ctag-add-btn';typeAddBtn.textContent='+';typeAddBtn.onclick=addFn;
+    typeInputRow.appendChild(typeInput);typeInputRow.appendChild(typeAddBtn);typeCtag.appendChild(typeTagsWrap);typeCtag.appendChild(typeInputRow);typeCtag.appendChild(mlQuickWrap);typeWrap.appendChild(typeCtag);
     (m.typeTags||[]).forEach(tag=>_renderMlTypeTag(m.id,tag,typeTagsWrap));
-    const introWrap=document.createElement('div');introWrap.className='fg';const introLabel=document.createElement('label');introLabel.textContent='소개';const introTa=document.createElement('textarea');introTa.rows=2;introTa.style.cssText='resize:none;overflow:hidden;min-height:54px';introTa.value=m.intro||'';introTa.oninput=(function(mid){return function(){syncMl(mid,'intro',this.value);autosizeEl(this);};})(m.id);introWrap.appendChild(introLabel);introWrap.appendChild(introTa);
-    inner.appendChild(checkRow);inner.appendChild(fields);inner.appendChild(typeWrap);inner.appendChild(introWrap);
+    const introWrap=document.createElement('div');introWrap.className='fg';const introLabel=document.createElement('label');introLabel.textContent='소개';const introTa=document.createElement('textarea');introTa.rows=1;introTa.value=m.intro||'';introTa.oninput=(function(mid){return function(){syncMl(mid,'intro',this.value);autosizeEl(this);};})(m.id);introWrap.appendChild(introLabel);introWrap.appendChild(introTa);
+    inner.appendChild(photoRow);inner.appendChild(checkRow);inner.appendChild(fields);inner.appendChild(typeWrap);inner.appendChild(introWrap);
     body.appendChild(inner);item.appendChild(head);item.appendChild(body);wrap.appendChild(item);
     autosizeEl(introTa);
     renderQuickTagsMl(m.id,typeTagsWrap);
@@ -476,7 +477,8 @@ window.addEventListener('popstate',e=>{
   _navDepth=Math.max(0,_navDepth-1);
   const open=[...document.querySelectorAll('.ov.open')].filter(o=>o.id!=='loginOv');
   if(open.length){
-    open.forEach(o=>o.classList.remove('open'));
+    const crop=open.find(o=>o.id==='cropOv');
+    if(crop)closeCrop();else open.forEach(o=>o.classList.remove('open'));
     if(_routeState){_navDepth++;history.pushState(_routeState,'',routeUrl(_routeState));}
     return;
   }
@@ -636,7 +638,7 @@ function applyRidiInfo(info,url){
   const set=(id,v,force)=>{const el=document.getElementById(id);if(el&&v&&(force||!el.value))el.value=v;};
   set('f-title',title);set('f-author',info.author);
   if(desc){const s=document.getElementById('f-summary');if(s&&!s.value){s.value=desc;autosizeEl(s);}}
-  set('f-platform','리디');set('f-platformurl',url,true);set('f-agerating',age,true);set('f-booktype',bookType,true);
+  set('f-platform','리디');set('f-platformurl',url,true);set('f-agerating',age,true);set('f-booktype',bookType,true);if(typeof renderChoices==='function')renderChoices();
   if(cover&&!currentCover){currentCover=cover;document.getElementById('coverBox').innerHTML=`<img src="${escHtml(cover)}" alt="">`;}
   genres.forEach(g=>{if(!currentGenreTags.includes(g))currentGenreTags.push(g);});renderGenreTags();
   sojai.forEach(t=>{const tag='#'+t;if(!currentCtagsSojai.includes(tag))currentCtagsSojai.push(tag);});renderTagsSojai();
@@ -701,9 +703,9 @@ function handleRidiHash(){
 function searchByTag(tag){const inp=document.getElementById('searchInput');if(inp)inp.value=tag;currentStatusFilter='';currentFilter='전체';showFavOnly=false;document.querySelectorAll('.sp').forEach(p=>p.classList.toggle('sp-on',p.dataset.sv===''));document.getElementById('favPill')?.classList.remove('active');switchPage('library');}
 
 // ══════════════ 설정 (테마/폰트) ══════════════
-const BG_THEMES=[{id:'default',name:'기본',colors:['#f7f6f4','#f0eeeb']},{id:'cream',name:'크림',colors:['#fdf6ee','#f5ead8']},{id:'rose',name:'로즈',colors:['#fdf0f4','#f5e0e8']},{id:'mint',name:'민트',colors:['#f0f8f4','#e0f0e8']},{id:'lavender',name:'라벤더',colors:['#f4f0fd','#e8e0f8']},{id:'sky',name:'하늘',colors:['#f0f6fd','#e0eef8']}];
-const BUILTIN_FONTS=[{id:'noto-sans',name:'Noto Sans KR',css:"'Noto Sans KR',sans-serif",sample:'나의 서재 — 독서 기록',builtin:true},{id:'noto-serif',name:'Noto Serif KR',css:"'Noto Serif KR',serif",sample:'나의 서재 — 독서 기록',builtin:true},{id:'dm-serif',name:'DM Serif Display',css:"'DM Serif Display',serif",sample:'My Library — Book Log',builtin:true}];
-let currentBgTheme=localStorage.getItem('myLib_bgTheme')||'default',currentFont=localStorage.getItem('myLib_font')||'noto-sans',userFonts=[];
+const BG_THEMES=[{id:'default',name:'누런 종이',colors:['#efe5cc','#e2d5b4']},{id:'cream',name:'흰 종이',colors:['#f6efdc','#f8f2e2']},{id:'rose',name:'분홍 카드',colors:['#f1dfd6','#f6e8e0']},{id:'mint',name:'연두 카드',colors:['#dfe6d2','#ebefe0']},{id:'lavender',name:'보라 카드',colors:['#e2dde8','#ece8f0']},{id:'sky',name:'하늘 카드',colors:['#dbe3ea','#e8edf2']}];
+const BUILTIN_FONTS=[{id:'typewriter',name:'타자기 (기본)',css:"'Courier Prime','Gowun Batang',serif",sample:'나의 서재 — 813.1 김54ㅅ',builtin:true},{id:'gowun',name:'고운바탕',css:"'Gowun Batang',serif",sample:'나의 서재 — 독서 기록',builtin:true},{id:'noto-sans',name:'Noto Sans KR',css:"'Noto Sans KR',sans-serif",sample:'나의 서재 — 독서 기록',builtin:true},{id:'noto-serif',name:'Noto Serif KR',css:"'Noto Serif KR',serif",sample:'나의 서재 — 독서 기록',builtin:true},{id:'dm-serif',name:'DM Serif Display',css:"'DM Serif Display',serif",sample:'My Library — Book Log',builtin:true}];
+let currentBgTheme=localStorage.getItem('myLib_bgTheme')||'default',currentFont=(localStorage.getItem('myLib_fontV2')?localStorage.getItem('myLib_font'):null)||'typewriter',userFonts=[];
 function initBgTheme(){
   try{userFonts=JSON.parse(localStorage.getItem('myLib_userFonts')||'[]');}catch(e){userFonts=[];}
   // 저장된 폰트 FontFace 재등록 (새로고침 후 복원)
@@ -721,7 +723,7 @@ function closeSettings(){document.getElementById('settingsOv').classList.remove(
 function renderThemeGrid(){const el=document.getElementById('themeGrid');el.innerHTML=BG_THEMES.map(t=>`<div class="theme-swatch${t.id===currentBgTheme?' active':''}" onclick="selectBgTheme('${t.id}')"><div class="theme-circle" style="background:linear-gradient(135deg,${t.colors[0]},${t.colors[1]})"></div><span class="theme-name">${t.name}</span></div>`).join('');}
 function selectBgTheme(id){currentBgTheme=id;localStorage.setItem('myLib_bgTheme',id);applyBgTheme(id);renderThemeGrid();}
 function renderFontList(){const el=document.getElementById('fontList');const all=[...BUILTIN_FONTS,...userFonts];el.innerHTML=all.map(f=>`<div class="font-item${f.id===currentFont?' active':''}" onclick="selectFont('${f.id}')"><div style="flex:1"><div class="font-item-name" style="font-family:${f.css}">${f.name}</div><div class="font-item-sample" style="font-family:${f.css}">${f.sample||'나의 서재'}</div></div>${!f.builtin?`<button class="font-del" onclick="event.stopPropagation();deleteUserFont('${f.id}')">✕</button>`:''}</div>`).join('');}
-function selectFont(id){currentFont=id;localStorage.setItem('myLib_font',id);applyFont(id);renderFontList();}
+function selectFont(id){currentFont=id;localStorage.setItem('myLib_font',id);localStorage.setItem('myLib_fontV2','1');applyFont(id);renderFontList();}
 async function handleFontUpload(e){
   const files=Array.from(e.target.files);
   let added=0;
