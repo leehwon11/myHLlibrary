@@ -11,7 +11,9 @@ function getSortedFiltered(){
     const fm=!showFavOnly||!!b.fav;
     const allTags=[...(b.sojaiTags||b.tags||[]),...(b.relTags||b.themes||[])];
     const excTags=(b.excerpts||[]).flatMap(e=>e.tags||[]);
-    const qm=!q||[b.title,b.author,callNumber(b),...bG,...allTags,...excTags].join(' ').toLowerCase().includes(q);
+    const mlArr=Array.isArray(b.ml)?b.ml:(b.ml&&b.ml.name?[b.ml]:[]);const fl=b.fl||{};
+    const leadWords=[...mlArr.flatMap(m=>[m.name,...(m.typeTags||[])]),fl.name,...(b.flTypeTags||[]),...(fl.typeTags||[])];
+    const qm=!q||[b.title,b.author,callNumber(b),...bG,...allTags,...leadWords,...(b.moods||[]),...excTags].filter(Boolean).join(' ').toLowerCase().includes(q);
     return gm&&sm&&fm&&qm;
   });
   if(sort==='newest')list.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
